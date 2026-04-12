@@ -1,5 +1,7 @@
 # Arduinoboy
-Official ArduinoBoy Repository for serial MIDI communication to the Nintendo Gameboy.
+Adapted for my particular pinout for my Pro Micro Arduinoboy project. Mode select button function altered to use a built-in pull up resistor instead of the external 2k resistor on the official schematic. 
+
+ArduinoBoy Repository for serial MIDI communication to the Nintendo Gameboy.
 
 ![ScreenShot](http://trash80.net/arduinoboy/aboy1_2_0.jpg)
 
