@@ -61,6 +61,7 @@
  *     - USB MIDI host port requires 5V VBUS power, and two 15k resistors  *
  *     one from D+ to ground, and another from D- to ground.               * 
  *                                                                         *
+ *     -IMPORTANT set CPU Speed: "240 MHz (Overclock)"                     *
  *     -NOTE use a ground wire to the usb host thicker than 30awg.         *
  *     -Twist D+ and D-, try to keep them short.                           *
  *     -The 22ohm resistors go near the RP2040.                            *
