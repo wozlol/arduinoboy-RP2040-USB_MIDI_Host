@@ -58,9 +58,12 @@
  *     - Serial Data from gameboy on GPIO pin 8                            *
  *     - USB MIDI host D+ to 22ohm resistor to GPIO pin 14                 *
  *     - USB MIDI host D- to 22ohm resistor to GPIO pin 15                 * 
- *     - USB MIDI host port requires 5V VBUS power                         *
- *     *NOTE use a ground wire to the usb host thicker than 30awg.         *
- *      Twist D+ and D-, try to keep them short. Resistors go near the RP. *
+ *     - USB MIDI host port requires 5V VBUS power, and two 15k resistors  *
+ *     one from D+ to ground, and another from D- to ground.               * 
+ *                                                                         *
+ *     -NOTE use a ground wire to the usb host thicker than 30awg.         *
+ *     -Twist D+ and D-, try to keep them short.                           *
+ *     -The 22ohm resistors go near the RP2040.                            *
  *                                                                         *
  *   RP2040 built-in USB works as a USB MIDI device.                       *
  *   RP2040 GPIO14/GPIO15 port works as a USB MIDI host.                   *
