@@ -15,12 +15,13 @@
  * Name:    Joseph Wozniak                                                 *
  * Email:   woz@woz.lol                                                    *
  *                                                                         *
- * Adds RP2040 / Arduino-Pico support, built-in USB MIDI device support,    *
- * and PIO-USB host support for class-compliant USB MIDI keyboards.         *
+ * Adds RP2040 / Arduino-Pico support, built-in USB MIDI device support,   *
+ * and PIO-USB host support for class-compliant USB MIDI keyboards.        *
+ * (tested only on the RP2040 Zero module)                                 *
  *                                                                         *
- * Previous version: 1.3.4 - Modified by Entropy Electronics for ProMicro   *
+ * Previous version: 1.3.4 - Modified by Entropy Electronics for ProMicro  *
  * Date:    May 19 2020                                                    *
- * Original author: Timothy Lamb                                            *
+ * Original author: Timothy Lamb                                           *
  * Email:   trash80@gmail.com                                              *
  *                                                                         *
  ***************************************************************************
