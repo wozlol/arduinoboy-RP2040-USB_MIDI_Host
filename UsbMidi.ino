@@ -243,9 +243,9 @@ void usbMidiInit()
     if(!TinyUSBDevice.isInitialized()) {
       TinyUSBDevice.begin(0);
     }
-    TinyUSBDevice.setManufacturerDescriptor("Gameboy");
-    TinyUSBDevice.setProductDescriptor("Gameboy");
-    usb_midi.setStringDescriptor("Gameboy");
+    TinyUSBDevice.setManufacturerDescriptor("Game Boy");
+    TinyUSBDevice.setProductDescriptor("Game Boy");
+    usb_midi.setStringDescriptor("Game Boy");
     usb_midi.begin();
     if(TinyUSBDevice.mounted()) {
       TinyUSBDevice.detach();
