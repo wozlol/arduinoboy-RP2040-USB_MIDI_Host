@@ -37,6 +37,9 @@ void programmerSendSettings()
 #ifdef USE_TEENSY
   usbMIDI.sendSysEx(MEM_MAX+4, sysexData);
 #endif
+#ifdef USE_RP2040
+  usbMidiSendSysEx(sysexData, MEM_MAX+4);
+#endif
 }
 
 void setProgrammerRequestConnect()
@@ -45,6 +48,9 @@ void setProgrammerRequestConnect()
   serial->write(data, 4);
 #ifdef USE_TEENSY
   usbMIDI.sendSysEx(4, data);
+#endif
+#ifdef USE_RP2040
+  usbMidiSendSysEx(data, 4);
 #endif
 }
 
@@ -87,6 +93,9 @@ void programmerSendConnectRequest()
     serial->write(data, 6);
 #ifdef USE_TEENSY
     usbMIDI.sendSysEx(6, data);
+#endif
+#ifdef USE_RP2040
+    usbMidiSendSysEx(data, 6);
 #endif
     sysexProgrammerLastSent = millis();
   }
@@ -133,6 +142,9 @@ void sendMode()
   serial->write(data, 4);
 #ifdef USE_TEENSY
   usbMIDI.sendSysEx(4, data);
+#endif
+#ifdef USE_RP2040
+  usbMidiSendSysEx(data, 4);
 #endif
 }
 

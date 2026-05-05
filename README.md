@@ -36,8 +36,6 @@ USB HOST NOTES:
 
 ## Program Information
 
-mGB - MIDI channels changed so 3-note poly is ch1, as it should be, for maximum gladness.
-
 LSDJ Slave Mode Midi Note Effects:
 
 - 48 - C-2 Sends a Sequencer Start Command

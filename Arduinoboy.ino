@@ -164,12 +164,7 @@ byte defaultMemoryMap[MEM_MAX] = {
   1,2,3,7,10,11,12, // wav
   1,2,3,7,10,11,12, // noi
 
-  1, 2, 3, 9, 0, // mGB MIDI channels:
-                  // mGB ch1 <- MIDI ch2
-                  // mGB ch2 <- MIDI ch3
-                  // mGB ch3 <- MIDI ch4
-                  // mGB ch4 drums/noise <- MIDI ch10
-                  // mGB ch5/global <- MIDI ch1
+  0,1,2,3,4, // mGB midi channels
 
   0,    // livemap channel start
   80,1, // midiout bit delay
@@ -289,12 +284,14 @@ struct UsbMidiMessage {
 bool usbMidiReadMessage(UsbMidiMessage *msg);
 void usbMidiInit();
 void usbMidiStartHost();
+void usbMidiSendSysEx(const uint8_t *data, uint16_t length);
+boolean checkForProgrammerSysex(byte sin);
 
 int pinGBClock     = 6; // Game Boy clock line
 int pinGBSerialOut = 7; // Serial data to Game Boy
 int pinGBSerialIn  = 8; // Serial data from Game Boy
 int pinMidiInputPower = 0; // Not used on RP2040 USB/DIN builds
-int pinStatusLed = 13;
+int pinStatusLed = 16;
 int pinLeds[] = {9, 10, 11, 12, 13, 16};
 int pinButtonMode = 5;
 

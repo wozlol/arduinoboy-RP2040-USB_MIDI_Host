@@ -113,11 +113,37 @@ bool usbMidiEnqueuePacket(const uint8_t packet[4])
   return usbMidiEnqueue(status, len > 1 ? packet[2] : 0, len > 2 ? packet[3] : 0, len);
 }
 
+bool usbMidiHandleDevicePacket(const uint8_t packet[4])
+{
+  const uint8_t cin = packet[0] & 0x0F;
+  switch(cin) {
+    case 0x4:
+      checkForProgrammerSysex(packet[1]);
+      checkForProgrammerSysex(packet[2]);
+      checkForProgrammerSysex(packet[3]);
+      return true;
+    case 0x5:
+      checkForProgrammerSysex(packet[1]);
+      return true;
+    case 0x6:
+      checkForProgrammerSysex(packet[1]);
+      checkForProgrammerSysex(packet[2]);
+      return true;
+    case 0x7:
+      checkForProgrammerSysex(packet[1]);
+      checkForProgrammerSysex(packet[2]);
+      checkForProgrammerSysex(packet[3]);
+      return true;
+    default:
+      return usbMidiEnqueuePacket(packet);
+  }
+}
+
 void usbMidiPollDevice()
 {
   uint8_t packet[4];
   while(usb_midi.readPacket(packet)) {
-    usbMidiEnqueuePacket(packet);
+    usbMidiHandleDevicePacket(packet);
   }
 }
 
@@ -165,6 +191,28 @@ void usbMidiSendRTMessage(uint8_t b)
   usbMidiWriteRaw(b, 0, 0, 1);
 }
 
+void usbMidiSendSysEx(const uint8_t *data, uint16_t length)
+{
+  uint16_t position = 0;
+  while(length - position > 3) {
+    uint8_t packet[4] = {0x04, data[position], data[position + 1], data[position + 2]};
+    usb_midi.writePacket(packet);
+    position += 3;
+  }
+
+  const uint8_t remaining = length - position;
+  if(remaining == 1) {
+    uint8_t packet[4] = {0x05, data[position], 0, 0};
+    usb_midi.writePacket(packet);
+  } else if(remaining == 2) {
+    uint8_t packet[4] = {0x06, data[position], data[position + 1], 0};
+    usb_midi.writePacket(packet);
+  } else if(remaining == 3) {
+    uint8_t packet[4] = {0x07, data[position], data[position + 1], data[position + 2]};
+    usb_midi.writePacket(packet);
+  }
+}
+
 void usbMidiHandleSysEx(const uint8_t *data, uint16_t length, bool complete)
 {
   if(sysexPosition + length >= longestSysexMessage || (length < 3 && complete)) {
@@ -192,7 +240,9 @@ void usbMidiHandleSysEx(const uint8_t *data, uint16_t length, bool complete)
 void usbMidiInit()
 {
   if(!usbMidiDeviceStarted) {
-    usb_midi.setStringDescriptor("Arduinoboy RP2040");
+    TinyUSBDevice.setManufacturerDescriptor("Gameboy");
+    TinyUSBDevice.setProductDescriptor("Gameboy");
+    usb_midi.setStringDescriptor("Gameboy");
     usb_midi.begin();
     usbMidiDeviceStarted = true;
   }
@@ -290,6 +340,7 @@ void usbMidiSendTwoByteMessage(uint8_t b1, uint8_t b2) {};
 void usbMidiSendThreeByteMessage(uint8_t b1, uint8_t b2, uint8_t b3) {};
 void usbMidiSendRTMessage(uint8_t b) {};
 void usbMidiHandleSysEx(const uint8_t *data, uint16_t length, bool complete) {};
+void usbMidiSendSysEx(const uint8_t *data, uint16_t length) {};
 void usbMidiInit() {};
 void usbMidiStartHost() {};
 void usbMidiUpdate() {};
