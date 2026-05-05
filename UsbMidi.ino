@@ -240,10 +240,18 @@ void usbMidiHandleSysEx(const uint8_t *data, uint16_t length, bool complete)
 void usbMidiInit()
 {
   if(!usbMidiDeviceStarted) {
+    if(!TinyUSBDevice.isInitialized()) {
+      TinyUSBDevice.begin(0);
+    }
     TinyUSBDevice.setManufacturerDescriptor("Gameboy");
     TinyUSBDevice.setProductDescriptor("Gameboy");
     usb_midi.setStringDescriptor("Gameboy");
     usb_midi.begin();
+    if(TinyUSBDevice.mounted()) {
+      TinyUSBDevice.detach();
+      delay(10);
+      TinyUSBDevice.attach();
+    }
     usbMidiDeviceStarted = true;
   }
 }
