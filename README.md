@@ -8,8 +8,8 @@ ArduinoBoy Repository for serial MIDI communication to the Nintendo Gameboy.
 ## About 
 Arduinoboy is software for the [Arduino hardware platform](http://arduino.cc) that allows serial communication (MIDI) to the Nintendo Gameboy for music applications such as [LittleSoundDJ](http://littlesounddj.com), [Nanoloop.](http://www.nanoloop.com/), and [mGB](https://github.com/trash80/mGB)
 
-## RP2040 / Arduino-Pico Additions
-This fork adds RP2040 / Arduino-Pico support, built-in USB MIDI device support, and PIO-USB host support for class-compliant USB MIDI keyboards. It has been tested on the Waveshare RP2040 Zero.
+## RP2040 USB MIDI Host Additions
+This fork adds RP2040 / Arduino-Pico support focused on USB MIDI host use: a PIO-USB host port for class-compliant USB MIDI keyboards and controllers, plus built-in USB MIDI device support for the Max editor and computer MIDI connections. It has been tested on the Waveshare RP2040 Zero.
 
 The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. The GPIO14/GPIO15 port works as a USB MIDI host.
 
