@@ -32,6 +32,9 @@ void setMode()
     if(memory[MEM_MODE] > (NUMBER_OF_MODES - 1)) memory[MEM_MODE]=0;  //if the mode is greater then 4 it will wrap back to 0
     #ifndef USE_DUE
     if(!memory[MEM_FORCE_MODE]) EEPROM.write(MEM_MODE, memory[MEM_MODE]); //write mode to eeprom if we arnt forcing a mode in the config
+    #ifdef USE_RP2040
+    EEPROM.commit();
+    #endif
     #endif
     showSelectedMode();            //set the LEDS
     switchMode();

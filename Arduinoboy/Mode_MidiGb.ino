@@ -121,6 +121,75 @@ void sendByteToGameboy(byte send_byte)
 
 void modeMidiGbUsbMidiReceive()
 {
+#ifdef USE_RP2040
+    UsbMidiMessage rx;
+    while(usbMidiReadMessage(&rx)) {
+        if(rx.status >= 0xF0) continue;
+
+        uint8_t ch = rx.status & 0x0F;
+        boolean send = false;
+        if(ch == memory[MEM_MGB_CH]) {
+            ch = 0;
+            send = true;
+        } else if (ch == memory[MEM_MGB_CH+1]) {
+            ch = 1;
+            send = true;
+        } else if (ch == memory[MEM_MGB_CH+2]) {
+            ch = 2;
+            send = true;
+        } else if (ch == memory[MEM_MGB_CH+3]) {
+            ch = 3;
+            send = true;
+        } else if (ch == memory[MEM_MGB_CH+4]) {
+            ch = 4;
+            send = true;
+        }
+        if(!send) continue;
+
+        uint8_t s;
+        switch(rx.status & 0xF0) {
+            case 0x80:
+            case 0x90:
+                s = (rx.status & 0xF0) + ch;
+                sendByteToGameboy(s);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data1);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data2);
+                delayMicroseconds(GB_MIDI_DELAY);
+                blinkLight(s, rx.data2);
+                break;
+            case 0xB0:
+                sendByteToGameboy(0xB0 + ch);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data1);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data2);
+                delayMicroseconds(GB_MIDI_DELAY);
+                blinkLight(0xB0 + ch, rx.data2);
+                break;
+            case 0xC0:
+                sendByteToGameboy(0xC0 + ch);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data1);
+                delayMicroseconds(GB_MIDI_DELAY);
+                blinkLight(0xC0 + ch, rx.data1);
+                break;
+            case 0xE0:
+                sendByteToGameboy(0xE0 + ch);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data1);
+                delayMicroseconds(GB_MIDI_DELAY);
+                sendByteToGameboy(rx.data2);
+                delayMicroseconds(GB_MIDI_DELAY);
+                break;
+            default:
+                continue;
+        }
+        statusLedOn();
+    }
+#endif
+
 #ifdef USE_TEENSY
 
     while(usbMIDI.read()) {

@@ -237,6 +237,29 @@ void sendKeyboardByteToGameboy(byte send_byte)
 
 void modeLSDJKeyboardMidiReceive()
 {
+#ifdef USE_RP2040
+    UsbMidiMessage rx;
+    while(usbMidiReadMessage(&rx)) {
+      const uint8_t ch = rx.status & 0x0F;
+      if(ch != memory[MEM_KEYBD_CH]) continue;
+
+      switch(rx.status & 0xF0) {
+        case 0x80:
+          playLSDJNote(0x90 + memory[MEM_KEYBD_CH], rx.data1, 0);
+          statusLedOn();
+          break;
+        case 0x90:
+          playLSDJNote(0x90 + memory[MEM_KEYBD_CH], rx.data1, rx.data2);
+          statusLedOn();
+          break;
+        case 0xC0:
+          changeLSDJInstrument(0xC0 + memory[MEM_KEYBD_CH], rx.data1);
+          statusLedOn();
+          break;
+      }
+    }
+#endif
+
 #ifdef USE_TEENSY
 
     while(usbMIDI.read(memory[MEM_KEYBD_CH]+1)) {

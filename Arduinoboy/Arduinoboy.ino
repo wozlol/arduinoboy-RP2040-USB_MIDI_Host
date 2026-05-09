@@ -10,9 +10,18 @@
  ***************************************************************************
  ***************************************************************************
  *                                                                         *
- * Version: 1.3.4- Modified by Entropy Electronics for ProMicro                                                          *
+ * Version: 1.3.5 - RP2040 USB MIDI device and host update                 *
+ * Date:    April 29 2026                                                  *
+ * Name:    Joseph Wozniak                                                 *
+ * Email:   woz@woz.lol                                                    *
+ *                                                                         *
+ * Adds RP2040 / Arduino-Pico support, built-in USB MIDI device support,   *
+ * and PIO-USB host support for class-compliant USB MIDI keyboards.        *
+ * (tested only on the RP2040 Zero module)                                 *
+ *                                                                         *
+ * Previous version: 1.3.4 - Modified by Entropy Electronics for ProMicro  *
  * Date:    May 19 2020                                                    *
- * Name:    Timothy Lamb                                                   *
+ * Original author: Timothy Lamb                                           *
  * Email:   trash80@gmail.com                                              *
  *                                                                         *
  ***************************************************************************
@@ -40,6 +49,26 @@
  *                                                                         *
  *   Teensy USB MIDI is supported                                          *
  *   Teensy LC should work but untested                                    *
+ *                                                                         *
+ *   RP2040 / Arduino-Pico pin settings:                                   *
+ *     - 6 LEDS on GPIO pins 9,10,11,12,13,16                              *
+ *     - Push button on GPIO pin 5 (for selecting mode)                    *
+ *     - MIDI Opto-isolator power not used                                 *
+ *     - Gameboy Clock line on GPIO pin 6                                  *
+ *     - Gameboy Serial Data input on GPIO pin 7                           *
+ *     - Serial Data from gameboy on GPIO pin 8                            *
+ *     - USB MIDI host D+ to 22ohm resistor to GPIO pin 14                 *
+ *     - USB MIDI host D- to 22ohm resistor to GPIO pin 15                 *
+ *     - USB MIDI host port requires 5V VBUS power, and two 15k resistors  *
+ *     one from D+ to ground, and another from D- to ground.               *
+ *                                                                         *
+ *     -IMPORTANT set CPU Speed: "240 MHz (Overclock)"                     *
+ *     -NOTE use a ground wire to the usb host thicker than 30awg.         *
+ *     -Twist D+ and D-, try to keep them short.                           *
+ *     -The 22ohm resistors go near the RP2040.                            *
+ *                                                                         *
+ *   RP2040 built-in USB works as a USB MIDI device.                       *
+ *   RP2040 GPIO14/GPIO15 port works as a USB MIDI host.                   *
  *                                                                         *
  * Program Information:                                                    *
  *    LSDJ Slave Mode Midi Note Effects:                                   *
@@ -112,31 +141,34 @@
 boolean usbMode                  = false; //to use usb for serial communication as oppose to MIDI - sets baud rate to 38400
 
 byte defaultMemoryMap[MEM_MAX] = {
-  0x7F,0x01,0x03,0x7F, //memory init check
-  0x00, //force mode (forces lsdj to be sl)
-  0x00, //mode
+  0x7F,0x01,0x03,0x7F, // memory init check
 
-  15, //sync effects midi channel (0-15 = 1-16)
-  15, //masterNotePositionMidiChannel - LSDJ in master mode will send its song position on the start button via midi note. (0-15 = 1-16)
+  0x01, // force mode ON, ignore EEPROM mode changes, boots fixed
+  0x04, // boot mode = internal mode 4 = README "Mode 5 Full MIDI with mGB"
 
-  15, //keyboardInstrumentMidiChannel - midi channel for keyboard instruments in lsdj. (0-15 = 1-16)
-  1, //Keyboard Compatability Mode
-  1, //Set to true if you want to have midi channel set the instrument number / doesnt do anything anymore
+  15,   // LSDJ slave sync MIDI channel, unused here
+  15,   // LSDJ master note position MIDI channel, unused here
+  15,   // keyboard MIDI channel, unused here
 
-  0,1,2,3, //midiOutNoteMessageChannels - midi channels for lsdj midi out note messages Default: channels 1,2,3,4
-  0,1,2,3, //midiOutCCMessageChannels - midi channels for lsdj midi out CC messages Default: channels 1,2,3,4
-  1,1,1,1, //midiOutCCMode - CC Mode, 0=use 1 midi CC, with the range of 00-6F, 1=uses 7 midi CCs with the
-                       //range of 0-F (the command's first digit would be the CC#), either way the value is scaled to 0-127 on output
-  1,1,1,1, //midiOutCCScaling - CC Scaling- Setting to 1 scales the CC value range to 0-127 as oppose to lsdj's incomming 00-6F (0-112) or 0-F (0-15)
-  1,2,3,7,10,11,12, //pu1: midiOutCCMessageNumbers - CC numbers for lsdj midi out, if CCMode is 1, all 7 ccs are used per channel at the cost of a limited resolution of 0-F
-  1,2,3,7,10,11,12, //pu2
-  1,2,3,7,10,11,12, //wav
-  1,2,3,7,10,11,12, //noi
+  1,    // keyboard compatibility mode
+  1,    // keyboard ch to instrument
 
-  0, 1, 2, 3, 4, //mGB midi channels (0-15 = 1-16)
-  0, //sync map midi channel start (0-15 = 1-16) (for song rows 0x80 to 0xFF it's this channel plus 1)
-  80,1,  //midiout bit check delay & bit check delay multiplier
-  0,0//midiout byte received delay & byte received delay multiplier
+  0,1,2,3, // LSDJ midiout note channels
+  0,1,2,3, // LSDJ midiout CC channels
+
+  1,1,1,1, // CC mode
+  1,1,1,1, // CC scaling
+
+  1,2,3,7,10,11,12, // pu1 CC numbers
+  1,2,3,7,10,11,12, // pu2
+  1,2,3,7,10,11,12, // wav
+  1,2,3,7,10,11,12, // noi
+
+  0,1,2,3,4, // mGB midi channels
+
+  0,    // livemap channel start
+  80,1, // midiout bit delay
+  0,0   // midiout byte delay
 };
 byte memory[MEM_MAX];
 
@@ -222,6 +254,48 @@ int pinButtonMode = 3; //toggle button for selecting the mode
 
 HardwareSerial *serial = &Serial;
 
+/***************************************************************************
+* RP2040 / Arduino-Pico
+*
+* Built-in USB is a USB MIDI device. A second USB port works as a USB MIDI
+* host for class-compliant USB MIDI keyboards using PIO-USB.
+***************************************************************************/
+#elif defined (ARDUINO_ARCH_RP2040)
+#define USE_RP2040 1
+#define USE_USB 1
+#include <Adafruit_TinyUSB.h>
+#include <MIDI.h>
+#include <hardware/clocks.h>
+#include "pio_usb_configuration.h"
+#include "pio_usb.h"
+
+#if defined(F_CPU) && (F_CPU != 120000000UL) && (F_CPU != 240000000UL)
+#error "RP2040 PIO USB host requires Arduino-Pico CPU Speed set to 120 MHz or 240 MHz."
+#endif
+
+#define GB_SET(bit_cl, bit_out, bit_in) digitalWrite(pinGBClock, bit_cl); digitalWrite(pinGBSerialOut, bit_out); digitalWrite(pinGBSerialIn, bit_in)
+#define USB_MIDI_MESSAGE_DEFINED 1
+struct UsbMidiMessage {
+  uint8_t status;
+  uint8_t data1;
+  uint8_t data2;
+  uint8_t length;
+};
+bool usbMidiReadMessage(UsbMidiMessage *msg);
+void usbMidiInit();
+void usbMidiStartHost();
+void usbMidiSendSysEx(const uint8_t *data, uint16_t length);
+boolean checkForProgrammerSysex(byte sin);
+
+int pinGBClock     = 6; // Game Boy clock line
+int pinGBSerialOut = 7; // Serial data to Game Boy
+int pinGBSerialIn  = 8; // Serial data from Game Boy
+int pinMidiInputPower = 0; // Not used on RP2040 USB/DIN builds
+int pinStatusLed = 16;
+int pinLeds[] = {9, 10, 11, 12, 13, 16};
+int pinButtonMode = 5;
+
+HardwareSerial *serial = &Serial1;
 
 /***************************************************************************
 * Arduino UNO/Ethernet/Nano (ATmega328), Arduino UNO Wifi (ATmega4809) or Mega 2560 (ATmega2560/ATmega1280) (assumed)
@@ -428,6 +502,11 @@ void setup() {
 /*
   Init Memory
 */
+#ifdef USE_RP2040
+  usbMidiInit();
+  Serial.begin(115200); // Required by Arduino-Pico when using the TinyUSB stack.
+  EEPROM.begin(256);
+#endif
   initMemory(0);
 /*
   Init Pins
@@ -500,6 +579,8 @@ void setup() {
   startupSequence();
 
   showSelectedMode(); //Light up the LED that shows which mode we are in.
+
+  usbMidiStartHost();
 }
 
 /*
