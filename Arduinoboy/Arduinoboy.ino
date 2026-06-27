@@ -143,7 +143,7 @@ boolean usbMode                  = false; //to use usb for serial communication 
 byte defaultMemoryMap[MEM_MAX] = {
   0x7F,0x01,0x03,0x7F, // memory init check
 
-  0x01, // force mode ON, ignore EEPROM mode changes, boots fixed
+  0x00, // change to 0x01 to activate 'force mode' which ignores EEPROM mode changes, boots fixed
   0x04, // boot mode = internal mode 4 = README "Mode 5 Full MIDI with mGB"
 
   15,   // LSDJ slave sync MIDI channel, unused here
