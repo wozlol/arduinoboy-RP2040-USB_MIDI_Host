@@ -12,6 +12,11 @@ This fork adds RP2040 / Arduino-Pico support focused on USB MIDI host use: a PIO
 
 The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. The GPIO14/GPIO15 port works as a USB MIDI host.
 
+## Schematic
+![GBHOST schematic](Schematic/SCH_GBHOST_1-GBHOST_2026-06-28.png)
+
+[Download the schematic PDF](Schematic/SCH_GBHOST_2026-06-28.pdf)
+
 ### RP2040 / Arduino-Pico Pin Settings
 * 6 LEDs on GPIO pins 9, 10, 11, 12, 13, 16
 * Push button on GPIO pin 5
