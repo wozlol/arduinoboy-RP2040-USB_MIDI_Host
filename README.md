@@ -2,7 +2,7 @@
 
 Based on the ArduinoBoy Repository for serial MIDI communication to the Nintendo Gameboy.
 
-![ScreenShot](http://trash80.net/arduinoboy/aboy1_2_0.jpg)
+![ScreenShot](ArduinoBoy_USB_HOST_woz.lol.JPG)
 
 ## About 
 Arduinoboy is software for the [Arduino hardware platform](http://arduino.cc) that allows serial communication (MIDI) to the Nintendo Gameboy for music applications such as [LittleSoundDJ](http://littlesounddj.com), [Nanoloop.](http://www.nanoloop.com/), and [mGB](https://github.com/trash80/mGB)
