@@ -17,6 +17,11 @@ The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. T
 
 [Download the schematic PDF](Schematic/SCH_GBHOST_2026-06-28.pdf)
 
+<p>
+  <img src="Schematic/game%20boy%20jacks%20front.jpg" alt="Game Boy jack front" width="49%">
+  <img src="Schematic/game%20boy%20jacks%20back.jpg" alt="Game Boy jack back" width="49%">
+</p>
+
 ### RP2040 / Arduino-Pico Pin Settings
 * 6 LEDs on GPIO pins 9, 10, 11, 12, 13, 16
 * Push button on GPIO pin 5
