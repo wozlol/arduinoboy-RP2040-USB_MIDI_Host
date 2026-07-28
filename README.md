@@ -13,13 +13,13 @@ This fork adds RP2040 / Arduino-Pico support focused on USB MIDI host use: a PIO
 The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. The GPIO14/GPIO15 port works as a USB MIDI host.
 
 ## Schematic
-![GBHOST schematic](Schematic/SCH_GBHOST_1-GBHOST_2026-06-28.png)
+![GBHOST schematic](Schematic/SCH_GBHOST_1-GBHOST_2026-07-27.png)
 
-[Download the schematic PDF](Schematic/SCH_GBHOST_2026-06-28.pdf)
+[Download the schematic PDF](Schematic/SCH_GBHOST_2026-07-27.pdf)
 
 <p>
-  <img src="Schematic/game%20boy%20jacks%20front.jpg" alt="Game Boy jack front" width="49%">
-  <img src="Schematic/game%20boy%20jacks%20back.jpg" alt="Game Boy jack back" width="49%">
+  <img src="Schematic/game%20boy%20jacks%20front.png" alt="Game Boy jack front" width="49%">
+  <img src="Schematic/game%20boy%20jacks%20back.png" alt="Game Boy jack back" width="49%">
 </p>
 
 ### RP2040 / Arduino-Pico Pin Settings
@@ -117,6 +117,11 @@ In Nanoloop, the sync mode should be set to `slave`.
 
 It works with the old DMG Gameboy as well as GBC/GBA.
 
+On the RP2040 build, mGB mode also provides a three-way MIDI thru. MIDI received
+from the serial MIDI port, built-in USB MIDI device port, or USB MIDI host port
+is sent to the Game Boy as before and mirrored to all three MIDI outputs. This
+allows the Arduinoboy to work as a USB MIDI adapter while it is in mGB mode.
+
 #### Mode 6 LSDJ MIDIMAP 
 Lsdj will sync to incoming MIDI sync, and incoming MIDI notes are mapped to LSDJ's song row #. The currently selected row's MIDI note is displayed on the top right of the LSDJ screen, and incoming MIDI notes will also display the relative song row number in the same location.
 
@@ -161,12 +166,6 @@ Setting this will tell your arduinoboy what mode to boot into automatically. Thi
 	* `CC Scaling ` - Set wether the 7 CCs are scaled or unscaled.
 
 
-## Future Features & wishlist
-  * Build instructions, and a Arduino Shield
-
-## How To build an Arduinoboy
-![ScreenShot](http://farm3.static.flickr.com/2229/2316803721_c22f9c2387.jpg)
-![ScreenShot](http://trash80.net/arduinoboy/arduinoboy_schematic_1_1_0.png)
 
 * [Build Photos](http://flickr.com/photos/trash80/2316803175/in/set-72157604068871573/)
 * [Old version (Pre 1.1.0)](http://trash80.net/junkfood/arduinoboy/arduinoboy-schem-v.0.9.8-r1.png)

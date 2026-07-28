@@ -10,13 +10,15 @@
  ***************************************************************************
  ***************************************************************************
  *                                                                         *
- * Version: 1.3.5 - RP2040 USB MIDI device and host update                 *
- * Date:    April 29 2026                                                  *
+ * Version: 1.3.6 - RP2040 mGB three-way MIDI thru update                  *
+ * Date:    July 27 2026                                                   *
  * Name:    Joseph Wozniak                                                 *
  * Email:   woz@woz.lol                                                    *
  *                                                                         *
  * Adds RP2040 / Arduino-Pico support, built-in USB MIDI device support,   *
- * and PIO-USB host support for class-compliant USB MIDI keyboards.        *
+ * and PIO-USB host support for class-compliant USB MIDI keyboards. In     *
+ * mGB mode: DIN/TRS, USB device, and USB host MIDI are mirrored to all    *
+ * three outputs, allowing the Arduinoboy to act as a USB MIDI adapter.    *
  * (tested only on the RP2040 Zero module)                                 *
  *                                                                         *
  * Previous version: 1.3.4 - Modified by Entropy Electronics for ProMicro  *
@@ -276,12 +278,15 @@ HardwareSerial *serial = &Serial;
 #define GB_SET(bit_cl, bit_out, bit_in) digitalWrite(pinGBClock, bit_cl); digitalWrite(pinGBSerialOut, bit_out); digitalWrite(pinGBSerialIn, bit_in)
 #define USB_MIDI_MESSAGE_DEFINED 1
 struct UsbMidiMessage {
+  uint8_t cin;
   uint8_t status;
   uint8_t data1;
   uint8_t data2;
   uint8_t length;
 };
 bool usbMidiReadMessage(UsbMidiMessage *msg);
+void usbMidiMgbThruToUsb(uint8_t cin, uint8_t status, uint8_t data1, uint8_t data2);
+void usbMidiMgbThruToAll(const UsbMidiMessage *msg);
 void usbMidiInit();
 void usbMidiStartHost();
 void usbMidiSendSysEx(const uint8_t *data, uint16_t length);

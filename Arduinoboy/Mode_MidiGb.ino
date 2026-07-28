@@ -28,13 +28,22 @@ void modeMidiGbSetup()
 void modeMidiGb()
 {
   boolean sendByte = false;
+#ifdef USE_RP2040
+  modeMidiGbResetSerialThru();
+#endif
   while(1){                                //Loop foreverrrr
     modeMidiGbUsbMidiReceive();
 
     if (serial->available()) {          //If MIDI is sending
       incomingMidiByte = serial->read();    //Get the byte sent from MIDI
 
-      if(!checkForProgrammerSysex(incomingMidiByte) && !usbMode) serial->write(incomingMidiByte); //Echo the Byte to MIDI Output
+      checkForProgrammerSysex(incomingMidiByte);
+      if(!usbMode) {
+        serial->write(incomingMidiByte); // In MGB mode every DIN byte is also sent to MIDI Out.
+      }
+#ifdef USE_RP2040
+      modeMidiGbThruSerialByte(incomingMidiByte);
+#endif
 
       if(incomingMidiByte & 0x80) {
         switch (incomingMidiByte & 0xF0) {
@@ -119,12 +128,134 @@ void sendByteToGameboy(byte send_byte)
  }
 }
 
+#ifdef USE_RP2040
+
+uint8_t mgbThruRunningStatus = 0;
+uint8_t mgbThruStatus = 0;
+uint8_t mgbThruData[2] = {0, 0};
+uint8_t mgbThruDataCount = 0;
+uint8_t mgbThruDataLength = 0;
+boolean mgbThruSysex = false;
+uint8_t mgbThruSysexData[3] = {0, 0, 0};
+uint8_t mgbThruSysexCount = 0;
+
+void modeMidiGbResetSerialThru()
+{
+  mgbThruRunningStatus = 0;
+  mgbThruStatus = 0;
+  mgbThruDataCount = 0;
+  mgbThruDataLength = 0;
+  mgbThruSysex = false;
+  mgbThruSysexCount = 0;
+}
+
+uint8_t modeMidiGbSerialDataLength(uint8_t status)
+{
+  if(status < 0xF0) {
+    return ((status & 0xF0) == 0xC0 || (status & 0xF0) == 0xD0) ? 1 : 2;
+  }
+
+  switch(status) {
+    case 0xF1:
+    case 0xF3:
+      return 1;
+    case 0xF2:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+void modeMidiGbThruSerialMessage()
+{
+  const uint8_t length = mgbThruDataLength + 1;
+  usbMidiMgbThruToUsb(
+    usbMidiCodeIndex(mgbThruStatus, length),
+    mgbThruStatus,
+    mgbThruData[0],
+    mgbThruData[1]
+  );
+  mgbThruDataCount = 0;
+
+  if(mgbThruStatus >= 0xF0) {
+    mgbThruStatus = 0;
+    mgbThruDataLength = 0;
+  }
+}
+
+void modeMidiGbThruSerialByte(uint8_t value)
+{
+  // Convert the DIN byte stream to USB-MIDI packets while preserving running status.
+  if(value >= 0xF8) {
+    usbMidiMgbThruToUsb(0x0F, value, 0, 0);
+    return;
+  }
+
+  if(value == 0xF0) {
+    mgbThruRunningStatus = 0;
+    mgbThruStatus = 0;
+    mgbThruSysex = true;
+    mgbThruSysexCount = 0;
+  }
+
+  if(mgbThruSysex) {
+    if(mgbThruSysexCount < sizeof(mgbThruSysexData)) {
+      mgbThruSysexData[mgbThruSysexCount++] = value;
+    }
+
+    if(mgbThruSysexCount == sizeof(mgbThruSysexData) || value == 0xF7) {
+      const uint8_t cin = value == 0xF7 ? 0x04 + mgbThruSysexCount : 0x04;
+      usbMidiMgbThruToUsb(
+        cin,
+        mgbThruSysexData[0],
+        mgbThruSysexCount > 1 ? mgbThruSysexData[1] : 0,
+        mgbThruSysexCount > 2 ? mgbThruSysexData[2] : 0
+      );
+      mgbThruSysexCount = 0;
+    }
+    if(value == 0xF7) mgbThruSysex = false;
+    return;
+  }
+
+  if(value & 0x80) {
+    mgbThruDataCount = 0;
+    if(value < 0xF0) {
+      mgbThruRunningStatus = value;
+      mgbThruStatus = value;
+    } else {
+      mgbThruRunningStatus = 0;
+      mgbThruStatus = value;
+    }
+    mgbThruDataLength = modeMidiGbSerialDataLength(value);
+
+    if(mgbThruDataLength == 0 && value != 0xF0 && value != 0xF7) {
+      usbMidiMgbThruToUsb(0x05, value, 0, 0);
+      mgbThruStatus = 0;
+    }
+    return;
+  }
+
+  if(mgbThruStatus == 0 && mgbThruRunningStatus != 0) {
+    mgbThruStatus = mgbThruRunningStatus;
+    mgbThruDataLength = modeMidiGbSerialDataLength(mgbThruStatus);
+  }
+  if(mgbThruStatus == 0 || mgbThruDataCount >= sizeof(mgbThruData)) return;
+
+  mgbThruData[mgbThruDataCount++] = value;
+  if(mgbThruDataCount == mgbThruDataLength) modeMidiGbThruSerialMessage();
+}
+
+#endif
+
 void modeMidiGbUsbMidiReceive()
 {
 #ifdef USE_RP2040
     UsbMidiMessage rx;
     while(usbMidiReadMessage(&rx)) {
-        if(rx.status >= 0xF0) continue;
+        // Only MGB mode mirrors every received USB message to DIN, USB device,
+        // and every connected USB host MIDI output, making this a USB MIDI adapter.
+        usbMidiMgbThruToAll(&rx);
+        if(rx.status >= 0xF0 || (rx.cin >= 0x04 && rx.cin <= 0x07)) continue;
 
         uint8_t ch = rx.status & 0x0F;
         boolean send = false;

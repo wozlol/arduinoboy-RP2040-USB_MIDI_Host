@@ -12,6 +12,7 @@
 #ifndef USB_MIDI_MESSAGE_DEFINED
 #define USB_MIDI_MESSAGE_DEFINED 1
 struct UsbMidiMessage {
+  uint8_t cin;
   uint8_t status;
   uint8_t data1;
   uint8_t data2;
@@ -23,6 +24,7 @@ constexpr uint8_t PIN_USB_HOST_DP = 14;
 constexpr uint8_t PIN_USB_HOST_DM = 15;
 constexpr uint8_t PIN_USB_HOST_VBUS_EN = 255;
 constexpr uint8_t USB_MIDI_QUEUE_SIZE = 64;
+constexpr uint8_t USB_MIDI_HOST_TX_QUEUE_SIZE = 64;
 constexpr uint8_t MAX_USB_MIDI_DEVICES = 8;
 
 Adafruit_USBD_MIDI usb_midi;
@@ -32,12 +34,16 @@ volatile bool usbHostStartRequested = false;
 volatile uint8_t usbMidiHead = 0;
 volatile uint8_t usbMidiTail = 0;
 UsbMidiMessage usbMidiQueue[USB_MIDI_QUEUE_SIZE];
+volatile uint8_t usbMidiHostTxHead = 0;
+volatile uint8_t usbMidiHostTxTail = 0;
+uint8_t usbMidiHostTxQueue[USB_MIDI_HOST_TX_QUEUE_SIZE][4];
 bool usbMidiDeviceStarted = false;
 
 struct UsbMidiDevice {
   bool mounted;
   uint8_t idx;
   uint8_t rxCableCount;
+  uint8_t txCableCount;
 };
 
 UsbMidiDevice usbMidiDevices[MAX_USB_MIDI_DEVICES];
@@ -85,7 +91,7 @@ uint8_t usbMidiCinLength(uint8_t cin)
   }
 }
 
-bool usbMidiEnqueue(uint8_t status, uint8_t data1, uint8_t data2, uint8_t length)
+bool usbMidiEnqueue(uint8_t cin, uint8_t status, uint8_t data1, uint8_t data2, uint8_t length)
 {
   noInterrupts();
   const uint8_t next = (usbMidiHead + 1) % USB_MIDI_QUEUE_SIZE;
@@ -94,6 +100,7 @@ bool usbMidiEnqueue(uint8_t status, uint8_t data1, uint8_t data2, uint8_t length
     return false;
   }
 
+  usbMidiQueue[usbMidiHead].cin = cin;
   usbMidiQueue[usbMidiHead].status = status;
   usbMidiQueue[usbMidiHead].data1 = data1;
   usbMidiQueue[usbMidiHead].data2 = data2;
@@ -105,35 +112,37 @@ bool usbMidiEnqueue(uint8_t status, uint8_t data1, uint8_t data2, uint8_t length
 
 bool usbMidiEnqueuePacket(const uint8_t packet[4])
 {
-  const uint8_t len = usbMidiCinLength(packet[0] & 0x0F);
+  const uint8_t cin = packet[0] & 0x0F;
+  const uint8_t len = usbMidiCinLength(cin);
   if(len == 0) return false;
 
   const uint8_t status = packet[1];
   if(status == 0) return false;
-  return usbMidiEnqueue(status, len > 1 ? packet[2] : 0, len > 2 ? packet[3] : 0, len);
+  return usbMidiEnqueue(cin, status, len > 1 ? packet[2] : 0, len > 2 ? packet[3] : 0, len);
 }
 
 bool usbMidiHandleDevicePacket(const uint8_t packet[4])
 {
   const uint8_t cin = packet[0] & 0x0F;
+  const bool mgbThruEnabled = memory[MEM_MODE] == 4;
   switch(cin) {
     case 0x4:
       checkForProgrammerSysex(packet[1]);
       checkForProgrammerSysex(packet[2]);
       checkForProgrammerSysex(packet[3]);
-      return true;
+      return mgbThruEnabled ? usbMidiEnqueuePacket(packet) : true;
     case 0x5:
       checkForProgrammerSysex(packet[1]);
-      return true;
+      return mgbThruEnabled ? usbMidiEnqueuePacket(packet) : true;
     case 0x6:
       checkForProgrammerSysex(packet[1]);
       checkForProgrammerSysex(packet[2]);
-      return true;
+      return mgbThruEnabled ? usbMidiEnqueuePacket(packet) : true;
     case 0x7:
       checkForProgrammerSysex(packet[1]);
       checkForProgrammerSysex(packet[2]);
       checkForProgrammerSysex(packet[3]);
-      return true;
+      return mgbThruEnabled ? usbMidiEnqueuePacket(packet) : true;
     default:
       return usbMidiEnqueuePacket(packet);
   }
@@ -165,6 +174,9 @@ bool usbMidiReadMessage(UsbMidiMessage *msg)
 uint8_t usbMidiCodeIndex(uint8_t status, uint8_t length)
 {
   if(status >= 0xF8) return 0x0F;
+  if(status == 0xF1 || status == 0xF3) return 0x02;
+  if(status == 0xF2) return 0x03;
+  if(status >= 0xF4) return 0x05;
   if((status & 0xF0) == 0xC0) return 0x0C;
   if((status & 0xF0) == 0xD0) return 0x0D;
   return (status & 0xF0) >> 4;
@@ -174,6 +186,31 @@ void usbMidiWriteRaw(uint8_t status, uint8_t data1, uint8_t data2, uint8_t lengt
 {
   uint8_t packet[4] = {usbMidiCodeIndex(status, length), status, data1, data2};
   usb_midi.writePacket(packet);
+}
+
+bool usbMidiHostTxEnqueue(const uint8_t packet[4])
+{
+  const uint8_t next = (usbMidiHostTxHead + 1) % USB_MIDI_HOST_TX_QUEUE_SIZE;
+  if(next == usbMidiHostTxTail) return false;
+
+  memcpy(usbMidiHostTxQueue[usbMidiHostTxHead], packet, 4);
+  usbMidiHostTxHead = next;
+  return true;
+}
+
+void usbMidiMgbThruToUsb(uint8_t cin, uint8_t status, uint8_t data1, uint8_t data2)
+{
+  // MGB mode turns the device and host connections into MIDI thru outputs.
+  uint8_t packet[4] = {cin, status, data1, data2};
+  usb_midi.writePacket(packet);
+  usbMidiHostTxEnqueue(packet);
+}
+
+void usbMidiMgbThruToAll(const UsbMidiMessage *msg)
+{
+  const uint8_t bytes[3] = {msg->status, msg->data1, msg->data2};
+  serial->write(bytes, msg->length);
+  usbMidiMgbThruToUsb(msg->cin, msg->status, msg->data1, msg->data2);
 }
 
 void usbMidiSendTwoByteMessage(uint8_t b1, uint8_t b2)
@@ -300,6 +337,17 @@ void loop1()
       usbMidiEnqueuePacket(packet);
     }
   }
+
+  while(usbMidiHostTxTail != usbMidiHostTxHead) {
+    const uint8_t *txPacket = usbMidiHostTxQueue[usbMidiHostTxTail];
+    for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
+      if(!usbMidiDevices[i].mounted || usbMidiDevices[i].txCableCount == 0) continue;
+      if(tuh_midi_packet_write(usbMidiDevices[i].idx, txPacket)) {
+        tuh_midi_write_flush(usbMidiDevices[i].idx);
+      }
+    }
+    usbMidiHostTxTail = (usbMidiHostTxTail + 1) % USB_MIDI_HOST_TX_QUEUE_SIZE;
+  }
 }
 
 void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t *mount_cb_data)
@@ -310,6 +358,7 @@ void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t *mount_cb_data)
       usbMidiDevices[i].mounted = true;
       usbMidiDevices[i].idx = idx;
       usbMidiDevices[i].rxCableCount = mount_cb_data->rx_cable_count;
+      usbMidiDevices[i].txCableCount = mount_cb_data->tx_cable_count;
       break;
     }
   }
