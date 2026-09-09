@@ -32,6 +32,9 @@ void modeMidiGb()
   modeMidiGbResetSerialThru();
 #endif
   while(1){                                //Loop foreverrrr
+    #ifdef USE_RP2040
+    wdFeed(WD_PHASE_MODE_LOOP);
+    #endif
     modeMidiGbUsbMidiReceive();
 
     if (serial->available()) {          //If MIDI is sending

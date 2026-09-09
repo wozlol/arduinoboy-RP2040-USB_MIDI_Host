@@ -39,6 +39,9 @@ void modeLSDJKeyboardSetup()
 void modeLSDJKeyboard()
 {
   while(1){                              //Loop foreverrrr
+  #ifdef USE_RP2040
+  wdFeed(WD_PHASE_MODE_LOOP);
+  #endif
   modeLSDJKeyboardMidiReceive();
   if (serial->available()) {          //If MIDI is sending
     incomingMidiByte = serial->read();    //Get the byte sent from MIDI

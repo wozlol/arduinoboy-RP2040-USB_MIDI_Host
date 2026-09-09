@@ -35,6 +35,9 @@ void modeLSDJMidiout()
   midiEventPacket_t packet;
 #endif
   while(1){
+     #ifdef USE_RP2040
+     wdFeed(WD_PHASE_MODE_LOOP);
+     #endif
      if(getIncommingSlaveByte()) {
         if(incomingMidiByte > 0x6f) {
           switch(incomingMidiByte)

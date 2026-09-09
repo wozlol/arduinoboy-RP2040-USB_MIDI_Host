@@ -39,14 +39,39 @@ volatile uint8_t usbMidiHostTxTail = 0;
 uint8_t usbMidiHostTxQueue[USB_MIDI_HOST_TX_QUEUE_SIZE][4];
 bool usbMidiDeviceStarted = false;
 
+/*
+  core1 health tracking, used by commitMemoryToFlash() (Memory_Functions.ino) to avoid
+  blocking forever in rp2040.idleOtherCore() when core1 (running the USB host PIO stack)
+  is stuck mid-transaction. core1LoopCount ticks once per loop1() pass; core1State says
+  what it was doing last. Single-word/byte writes are atomic across RP2040 cores, so no
+  locking is needed for either.
+*/
+volatile uint32_t core1LoopCount = 0;
+volatile uint8_t core1State = 0; // 0=not started, 1=idle/draining queues, 2=in USBHost.task(), 3=mount cb, 4=unmount cb
+
 struct UsbMidiDevice {
   bool mounted;
   uint8_t idx;
   uint8_t rxCableCount;
   uint8_t txCableCount;
+  uint32_t mountedMs;
+  uint32_t lastRxMs;    // 0 until the first packet ever arrives from this device
+  uint32_t lastRearmMs; // 0 until the first forced rearm
 };
 
 UsbMidiDevice usbMidiDevices[MAX_USB_MIDI_DEVICES];
+
+// A mounted device's RX bulk-IN transfer is normally "busy" (pending) essentially all
+// the time by design - TinyUSB resubmits it the instant the previous one completes, so
+// that alone can't distinguish "quietly waiting for the next note" from "stuck forever
+// on a transfer that will never complete". USB_MIDI_RX_SILENCE_MS is how long we let a
+// mounted device go without producing a single byte before we stop assuming it's just
+// idle and force tuh_midi_rx_rearm() to abort + resubmit that pending transfer. See
+// tuh_midi_rx_rearm() in Adafruit_TinyUSB_Library src/class/midi/midi_host.c - it's a
+// real, already-available function, not something added here.
+constexpr uint32_t USB_MIDI_RX_SILENCE_MS = 2000;
+
+extern "C" bool tuh_midi_rx_rearm(uint8_t idx);
 
 uint8_t usbMidiMessageLength(uint8_t status)
 {
@@ -323,18 +348,57 @@ void setup1()
   setupUsbHost();
   if(clock_get_hz(clk_sys) == 120000000UL || clock_get_hz(clk_sys) == 240000000UL) {
     USBHost.begin(1);
+    // Pico-PIO-USB creates its SOF/transaction alarm pool on hardware alarm 2
+    // (TIMER_IRQ_2), which drives the software-generated 1ms USB frame service this
+    // whole host path depends on. Raising it to the highest IRQ priority means other
+    // interrupts (DIN UART, USB device CDC/MIDI) can't delay that servicing. Cheap,
+    // and arpnmidi's own testing found no downside to leaving it on.
+    irq_set_priority(TIMER_IRQ_2, PICO_HIGHEST_IRQ_PRIORITY);
   }
 }
 
 void loop1()
 {
-  USBHost.task();
+  core1State = 2;
+  // Adafruit_USBH_Host::task() defaults to timeout_ms=UINT32_MAX when called with
+  // no argument, which lets the underlying tuh_task_ext() block indefinitely
+  // waiting for the next USB event. Passing 0 makes it a non-blocking poll instead -
+  // confirmed against the installed Adafruit TinyUSB Library 3.7.7 header, and
+  // matches how the arpnmidi project's own RP2040-PIO-USB-host firmware calls it.
+  USBHost.task(0);
+  core1State = 1;
 
   uint8_t packet[4];
+  uint32_t nowMs = millis();
   for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
     if(!usbMidiDevices[i].mounted || usbMidiDevices[i].rxCableCount == 0) continue;
+    bool readAny = false;
     while(tuh_midi_read_available(usbMidiDevices[i].idx) >= 4 && tuh_midi_packet_read(usbMidiDevices[i].idx, packet)) {
       usbMidiEnqueuePacket(packet);
+      readAny = true;
+    }
+    if(readAny) {
+      usbMidiDevices[i].lastRxMs = nowMs;
+      continue;
+    }
+
+    // Nothing came in this pass. A mounted RX endpoint sits "busy" almost all the
+    // time by design (TinyUSB immediately resubmits the pending read), so silence
+    // alone can't tell a genuinely idle device apart from one whose transfer is
+    // stuck and will never complete on its own. After USB_MIDI_RX_SILENCE_MS with
+    // nothing received, force the endpoint to abort + resubmit instead of trusting
+    // it'll recover by itself.
+    const uint32_t referenceMs = usbMidiDevices[i].lastRxMs != 0 ? usbMidiDevices[i].lastRxMs : usbMidiDevices[i].mountedMs;
+    if(nowMs - referenceMs < USB_MIDI_RX_SILENCE_MS) continue;
+    if(usbMidiDevices[i].lastRearmMs != 0 && nowMs - usbMidiDevices[i].lastRearmMs < USB_MIDI_RX_SILENCE_MS) continue;
+
+    usbMidiDevices[i].lastRearmMs = nowMs;
+    if(tuh_midi_rx_rearm(usbMidiDevices[i].idx)) {
+      Serial.print(F("[usb-host] RX rearmed on idx "));
+      Serial.print(usbMidiDevices[i].idx);
+      Serial.print(F(" after "));
+      Serial.print(nowMs - referenceMs);
+      Serial.println(F("ms silence"));
     }
   }
 
@@ -348,10 +412,21 @@ void loop1()
     }
     usbMidiHostTxTail = (usbMidiHostTxTail + 1) % USB_MIDI_HOST_TX_QUEUE_SIZE;
   }
+
+  core1LoopCount++;
+}
+
+int8_t findUsbMidiDeviceSlot(uint8_t idx)
+{
+  for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
+    if(usbMidiDevices[i].mounted && usbMidiDevices[i].idx == idx) return i;
+  }
+  return -1;
 }
 
 void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t *mount_cb_data)
 {
+  core1State = 3;
   if(idx >= MAX_USB_MIDI_DEVICES) return;
   for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
     if(!usbMidiDevices[i].mounted) {
@@ -359,6 +434,9 @@ void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t *mount_cb_data)
       usbMidiDevices[i].idx = idx;
       usbMidiDevices[i].rxCableCount = mount_cb_data->rx_cable_count;
       usbMidiDevices[i].txCableCount = mount_cb_data->tx_cable_count;
+      usbMidiDevices[i].mountedMs = millis();
+      usbMidiDevices[i].lastRxMs = 0;
+      usbMidiDevices[i].lastRearmMs = 0;
       break;
     }
   }
@@ -366,6 +444,7 @@ void tuh_midi_mount_cb(uint8_t idx, const tuh_midi_mount_cb_t *mount_cb_data)
 
 void tuh_midi_umount_cb(uint8_t idx)
 {
+  core1State = 4;
   if(idx >= MAX_USB_MIDI_DEVICES) return;
   for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
     if(usbMidiDevices[i].mounted && usbMidiDevices[i].idx == idx) {
@@ -378,6 +457,9 @@ void tuh_midi_umount_cb(uint8_t idx)
 void tuh_midi_rx_cb(uint8_t idx, uint32_t xferred_bytes)
 {
   if(idx >= MAX_USB_MIDI_DEVICES || xferred_bytes == 0) return;
+
+  const int8_t slot = findUsbMidiDeviceSlot(idx);
+  if(slot >= 0) usbMidiDevices[slot].lastRxMs = millis();
 
   uint8_t packet[4];
   while(tuh_midi_packet_read(idx, packet)) {

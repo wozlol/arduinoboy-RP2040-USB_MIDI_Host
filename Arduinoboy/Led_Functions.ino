@@ -6,6 +6,9 @@
  */
 void showSelectedMode()
 {
+  #ifdef USE_RP2040
+  wdFeed(WD_PHASE_SHOW_MODE);
+  #endif
   digitalWrite(pinStatusLed,LOW);
 
   for(int m=0;m<3;m++) {

@@ -1,0 +1,66 @@
+Vendored from: /Users/woz/Documents/Arduino/libraries/Pico_PIO_USB
+Upstream: https://github.com/sekigon-gonnoc/Pico-PIO-USB
+Version: 0.7.1
+License: MIT (see LICENSE)
+
+Why this is here
+-----------------
+Arduinoboy needs one behavior change from stock Pico-PIO-USB 0.7.1 to recover
+reliably from a USB MIDI host bulk-IN DATA0/DATA1 toggle desync - the failure
+mode where USB host MIDI input silently and permanently stops receiving notes
+(DIN and the device-side USB MIDI port keep working fine; only the host port
+dies) and nothing short of a reset brings it back.
+
+Arduino has no per-sketch way to override a #define buried inside a library's
+own .c file, so the only two ways to apply this are (a) hand-edit whatever
+copy of Pico_PIO_USB happens to be installed globally on the machine doing the
+build, which is not reproducible for anyone else building this repo, or (b)
+vendor a patched copy the sketch itself carries. This is (b). See
+Arduinoboy/Watchdog_Diagnostics.ino and UsbMidi.ino for the rest of the USB
+host reliability work this is part of.
+
+Patch applied
+-------------
+src/pio_usb_host.c: PIO_USB_BULK_IN_ACCEPT_ANY_DATA_PID default changed from
+0 (off) to 1 (on). This exact patch already existed in the library's own code
+as an opt-in #ifndef guard - it just defaulted off. Flipping the default
+accepts any CRC-good DATA0/DATA1 packet on a bulk IN endpoint and realigns the
+host's expected toggle to match, instead of discarding a legitimately-received
+but unexpected-toggle packet and leaving the mismatch to persist forever.
+
+Originally identified and tested (on a harder case: USB MIDI through a
+USB2514B hub) in the sibling arpnmidi project - see
+arpnmidi/legacy/USB2514B_PIO_USB_HOST_HANDOFF.txt, items 9 and 21, for the
+full investigation this patch comes from.
+
+Known gap
+---------
+A second related patch - a 10ms USB 2.0 T_RSTRCY delay in
+hcd_port_reset_end() - lives in Adafruit_TinyUSB_Library's
+src/portable/raspberrypi/pio_usb/hcd_pio_usb.c, not in this library, and is
+NOT vendored here (that library is much larger, and arpnmidi's own notes
+describe this specific delay as not solving the stall by itself). It's
+currently only a hand-edit on the machine this was developed on. If Arduinoboy
+needs to guarantee this one too, that library would need vendoring the same
+way.
+
+How resolution works, and its one limitation
+-----------------------------------------------
+Arduino's build tooling looks for a Pico_PIO_USB-compatible library at the
+sketch level as a fallback if none is found in the user's sketchbook
+(Documents/Arduino/libraries on most installs) or bundled with the board core.
+If a machine has NO Pico_PIO_USB installed globally, this vendored copy is
+what gets used - verified by compiling with the global library moved aside.
+If a machine DOES already have some other Pico_PIO_USB installed globally
+(patched or not), that one currently wins instead of this vendored copy - this
+is a real Arduino library-resolution limitation, not something this repo can
+force. In that case the global copy needs the same one-line change (see
+"Patch applied" above) applied by hand.
+
+Re-syncing from a newer upstream
+---------------------------------
+1. Get a clean copy of the target Pico-PIO-USB version.
+2. Reapply the PIO_USB_BULK_IN_ACCEPT_ANY_DATA_PID default change above.
+3. Replace src/ here with it (keep this file and LICENSE).
+4. Rebuild with the global Pico_PIO_USB library temporarily moved aside to
+   confirm this vendored copy alone is still sufficient (exit code 0).

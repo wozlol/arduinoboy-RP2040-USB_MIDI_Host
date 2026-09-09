@@ -1,6 +1,9 @@
 void modeProgrammer()
 {
   while(sysexProgrammingConnected || sysexProgrammingMode) {
+    #ifdef USE_RP2040
+    wdFeed(WD_PHASE_PROGRAMMER);
+    #endif
     checkProgrammerConnected();
     if (serial->available()) checkForProgrammerSysex(serial->read());
     updateProgrammerLeds();
@@ -131,6 +134,9 @@ void setMode(byte mode)
   memory[MEM_MODE] = mode;
   #ifndef USE_DUE
   EEPROM.write(MEM_MODE, memory[MEM_MODE]);
+  #ifdef USE_RP2040
+  commitMemoryToFlash(); // RP2040's EEPROM.write() only touches a RAM cache until committed
+  #endif
   #endif
   showSelectedMode();
   switchMode();

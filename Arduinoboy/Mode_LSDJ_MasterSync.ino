@@ -29,6 +29,9 @@ void modeLSDJMasterSyncSetup()
 void modeLSDJMasterSync()
 {
   while(1){
+  #ifdef USE_RP2040
+  wdFeed(WD_PHASE_MODE_LOOP);
+  #endif
 
 #ifdef USE_TEENSY
     while(usbMIDI.read()) ;

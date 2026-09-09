@@ -28,6 +28,9 @@ void modeNanoloopSetup()
 void modeNanoloopSync()
 {
   while(1){  //Loop forever
+  #ifdef USE_RP2040
+  wdFeed(WD_PHASE_MODE_LOOP);
+  #endif
   modeNanoloopUsbMidiReceive();
   if (serial->available()) {                 //If MIDI Byte Availaibleleleiel
     incomingMidiByte = serial->read();           //Read it

@@ -26,6 +26,9 @@
 
 void setMode()
 {
+  #ifdef USE_RP2040
+  wdFeed(WD_PHASE_SETMODE);
+  #endif
   buttonDepressed = !digitalRead(pinButtonMode);
   if(!memory[MEM_FORCE_MODE] && buttonDepressed) { //if the button is pressed
     memory[MEM_MODE]++;                           //increment the mode number
@@ -33,7 +36,7 @@ void setMode()
     #ifndef USE_DUE
     if(!memory[MEM_FORCE_MODE]) EEPROM.write(MEM_MODE, memory[MEM_MODE]); //write mode to eeprom if we arnt forcing a mode in the config
     #ifdef USE_RP2040
-    EEPROM.commit();
+    commitMemoryToFlash();
     #endif
     #endif
     showSelectedMode();            //set the LEDS

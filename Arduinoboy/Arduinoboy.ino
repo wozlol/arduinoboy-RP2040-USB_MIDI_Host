@@ -65,6 +65,10 @@
  *     one from D+ to ground, and another from D- to ground.               *
  *                                                                         *
  *     -IMPORTANT set CPU Speed: "240 MHz (Overclock)"                     *
+ *     -IMPORTANT set Optimize: "Optimize Even More (-O3)", not the        *
+ *      default "Small (-Os)". The USB host port is software-timed (PIO),  *
+ *      and the sibling arpnmidi project's own debugging log treats -O3    *
+ *      as required baseline for this same host path, not optional.        *
  *     -NOTE use a ground wire to the usb host thicker than 30awg.         *
  *     -Twist D+ and D-, try to keep them short.                           *
  *     -The 22ohm resistors go near the RP2040.                            *
@@ -108,6 +112,22 @@
  ***************************************************************************/
 #define MEM_MAX 65
 #define NUMBER_OF_MODES 7    //Right now there are 7 modes, Might be more in the future
+
+// RP2040 watchdog diagnostic phases - see Watchdog_Diagnostics.ino. Recorded to watchdog
+// scratch registers (which survive a watchdog-triggered reset) right before each named
+// section, so if the chip hangs, the next boot can report exactly which section it was
+// last in, and which mode it was in when it happened.
+#define WD_PHASE_BOOT           0
+#define WD_PHASE_MODE_LOOP      1
+#define WD_PHASE_SETMODE        2
+#define WD_PHASE_SHOW_MODE      3
+#define WD_PHASE_COMMIT_WAIT    4
+#define WD_PHASE_EEPROM_COMMIT  5
+#define WD_PHASE_PROGRAMMER     6
+#define WD_PHASE_CORE1_STALLED  7
+
+// Defined in Watchdog_Diagnostics.ino, concatenated after this file by the Arduino build.
+extern boolean wdRecoveringFromStall;
 
 //!!! do not edit these, they are the position in EEPROM memory that contain the value of each stored setting
 #define MEM_CHECK 0
@@ -268,6 +288,7 @@ HardwareSerial *serial = &Serial;
 #include <Adafruit_TinyUSB.h>
 #include <MIDI.h>
 #include <hardware/clocks.h>
+#include <hardware/watchdog.h>
 #include "pio_usb_configuration.h"
 #include "pio_usb.h"
 
@@ -511,6 +532,7 @@ void setup() {
   usbMidiInit();
   Serial.begin(115200); // Required by Arduino-Pico when using the TinyUSB stack.
   EEPROM.begin(256);
+  wdSetup(); // reports+blinks out where the previous boot hung (if any), then arms the watchdog
 #endif
   initMemory(0);
 /*
@@ -581,9 +603,19 @@ void setup() {
 */
   usbMidiInit();
 
+#ifdef USE_RP2040
+  // Skip the ~1.5s cosmetic power-on light show (and the mode-blink after it) when this
+  // boot was the watchdog auto-recovering from a core1 stall - wdReportAndBlink() already
+  // gave a quick visual acknowledgment, and the priority here is getting the USB host
+  // port back up fast, not replaying an animation nobody asked to see again.
+  if(!wdRecoveringFromStall) {
+    startupSequence();
+    showSelectedMode(); //Light up the LED that shows which mode we are in.
+  }
+#else
   startupSequence();
-
   showSelectedMode(); //Light up the LED that shows which mode we are in.
+#endif
 
   usbMidiStartHost();
 }
