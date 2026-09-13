@@ -4,7 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Arduinoboy Web Programmer</title>
-  <meta name="description" content="Programming software for any Arduinoboy. Runs in Chrome via Web MIDI, no install required.">
+  <meta name="description" content="Arduinoboy Web Editor for Game Boy MIDI, LSDJ & MGB settings. No install required.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="woz.lol">
+  <meta property="og:title" content="Arduinoboy Web Editor - wozLOL">
+  <meta property="og:description" content="Arduinoboy Web Editor for Game Boy MIDI, LSDJ & MGB settings. No install required.">
+  <meta property="og:url" content="https://woz.lol/arduinoboy/">
+  <meta property="og:image" content="https://woz.lol/wp-content/uploads/2026/09/ab_1.jpeg">
+  <meta property="og:image:width" content="806">
+  <meta property="og:image:height" content="630">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Arduinoboy Web Editor - wozLOL">
+  <meta name="twitter:description" content="Arduinoboy Web Editor for Game Boy MIDI, LSDJ & MGB settings. No install required.">
+  <meta name="twitter:image" content="https://woz.lol/wp-content/uploads/2026/09/ab_1.jpeg">
 
   <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
 
@@ -41,9 +55,9 @@
   <div class="toolbar-sticky">
     <div class="toolbar">
       <div class="toolbar-group">
-        <button id="loadFromDeviceBtn" class="btn" disabled>Reload from Device</button>
+        <button id="loadFromDeviceBtn" class="btn" disabled><span class="label-full">Reload from Device</span><span class="label-short">Reload</span></button>
         <button id="saveToDeviceBtn" class="btn btn-primary" disabled>Save to Device</button>
-        <button id="restoreDefaultsBtn" class="btn btn-danger" disabled>Restore Defaults</button>
+        <button id="restoreDefaultsBtn" class="btn btn-danger" disabled><span class="label-full">Restore Defaults</span><span class="label-short">Default</span></button>
       </div>
       <div class="toolbar-group">
         <button id="downloadPresetBtn" class="btn btn-ghost">Download Preset</button>
@@ -180,8 +194,14 @@
 
   </main>
 
+  <a class="cta-banner" href="https://woz.lol/arduinoboy_host_edition/" target="_blank" rel="noopener">
+    <span class="cta-text">Get the Latest ARDUINOBOY HOST EDITION<br>Hardware MIDI Game Boy Adapter Here</span>
+    <img class="cta-image" src="https://woz.lol/wp-content/uploads/2026/09/ab_1.jpeg" alt="Arduinoboy Host Edition">
+  </a>
+
   <footer class="app-footer">
     <p><a href="https://woz.lol" target="_blank" rel="noopener">woz.lol</a> &middot; ARDUINOBOY WEB PROGRAMMER &middot; Speaks the same Programmer Mode sysex protocol as the original trash80 Max/MSP editor &middot; Works in Chrome and other Chromium-based browsers. Firefox and Safari don't support Web MIDI yet.</p>
+    <p>This independent open-source accessory is not affiliated with Nintendo and is not designed to use, run, or distribute any Nintendo-licensed software, ROMs, games, or content.</p>
   </footer>
 
   <div id="busyOverlay" class="busy-overlay" hidden>
