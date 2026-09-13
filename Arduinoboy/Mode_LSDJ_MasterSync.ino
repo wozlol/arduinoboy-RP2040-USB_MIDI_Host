@@ -31,6 +31,10 @@ void modeLSDJMasterSync()
   while(1){
   #ifdef USE_RP2040
   wdFeed(WD_PHASE_MODE_LOOP);
+  // This mode has no other USB-device polling on RP2040, so without this, incoming
+  // USB-device sysex - including a web/Max programmer's request to enter Programmer
+  // Mode - is never read at all while sitting in this mode.
+  usbMidiUpdate();
   #endif
 
 #ifdef USE_TEENSY

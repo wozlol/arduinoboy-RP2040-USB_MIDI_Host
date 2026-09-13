@@ -97,7 +97,15 @@ void wdFeed(uint8_t phase)
     wdLastCore1ProgressMs = nowMs;
   }
 
-  if(nowMs - wdLastCore1ProgressMs > CORE1_LIVENESS_TIMEOUT_MS) {
+  // The core1-liveness gate exists to recover a USB host port that died mid-use. It must
+  // not fire when there's nothing to recover: while a programmer (web/Max editor) is
+  // talking to us, a reset would drop that session - and with no USB host device
+  // mounted at all, core1 is only idle-scanning the bus, so a stall there isn't worth a
+  // full chip reset either. In both cases just keep feeding normally.
+  const bool enforceCore1 = (phase != WD_PHASE_PROGRAMMER) && usbMidiHostDeviceMounted();
+  if(!enforceCore1) wdLastCore1ProgressMs = nowMs;
+
+  if(enforceCore1 && nowMs - wdLastCore1ProgressMs > CORE1_LIVENESS_TIMEOUT_MS) {
     // core1 hasn't completed a single loop1() pass in CORE1_LIVENESS_TIMEOUT_MS.
     // Stop feeding so the watchdog's own countdown resets the whole chip for us -
     // core0 alone has no way to restart core1 or the PIO-USB host state it owns.

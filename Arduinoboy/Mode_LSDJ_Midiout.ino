@@ -37,6 +37,10 @@ void modeLSDJMidiout()
   while(1){
      #ifdef USE_RP2040
      wdFeed(WD_PHASE_MODE_LOOP);
+     // This mode has no USB-device polling on RP2040 at all, so without this, incoming
+     // USB-device sysex - including a web/Max programmer's request to enter Programmer
+     // Mode - is never read while sitting in this mode.
+     usbMidiUpdate();
      #endif
      if(getIncommingSlaveByte()) {
         if(incomingMidiByte > 0x6f) {

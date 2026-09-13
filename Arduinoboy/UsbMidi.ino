@@ -255,23 +255,19 @@ void usbMidiSendRTMessage(uint8_t b)
 
 void usbMidiSendSysEx(const uint8_t *data, uint16_t length)
 {
-  uint16_t position = 0;
-  while(length - position > 3) {
-    uint8_t packet[4] = {0x04, data[position], data[position + 1], data[position + 2]};
-    usb_midi.writePacket(packet);
-    position += 3;
-  }
-
-  const uint8_t remaining = length - position;
-  if(remaining == 1) {
-    uint8_t packet[4] = {0x05, data[position], 0, 0};
-    usb_midi.writePacket(packet);
-  } else if(remaining == 2) {
-    uint8_t packet[4] = {0x06, data[position], data[position + 1], 0};
-    usb_midi.writePacket(packet);
-  } else if(remaining == 3) {
-    uint8_t packet[4] = {0x07, data[position], data[position + 1], data[position + 2]};
-    usb_midi.writePacket(packet);
+  // Writes one 4-byte USB-MIDI event packet at a time via writePacket(), each its own
+  // tiny transfer, arming the IN endpoint separately every time. tud_midi_stream_write()
+  // packetizes the whole byte stream into the TX FIFO first and arms the endpoint once,
+  // so a message that fits the FIFO goes out as a single transfer - fewer, larger USB
+  // transactions for the same data. Messages bigger than the FIFO (the 69-byte settings
+  // dump) are fed in as space frees up; the IN-completion callback runs in IRQ context,
+  // so spinning here is safe.
+  uint16_t written = 0;
+  const uint32_t startMs = millis();
+  while(written < length) {
+    const uint32_t n = tud_midi_stream_write(0, data + written, length - written);
+    written += n;
+    if(n == 0 && millis() - startMs > 50) break; // not draining (host not reading) - don't hang
   }
 }
 
@@ -414,6 +410,18 @@ void loop1()
   }
 
   core1LoopCount++;
+}
+
+// True while at least one USB MIDI device is mounted on the host port. The watchdog's
+// core1-liveness gate (Watchdog_Diagnostics.ino) only applies while this is true: with
+// nothing attached, core1 is just idle-scanning the bus, and a stall there costs nothing
+// worth a full chip reset.
+bool usbMidiHostDeviceMounted()
+{
+  for(uint8_t i = 0; i < MAX_USB_MIDI_DEVICES; ++i) {
+    if(usbMidiDevices[i].mounted) return true;
+  }
+  return false;
 }
 
 int8_t findUsbMidiDeviceSlot(uint8_t idx)
