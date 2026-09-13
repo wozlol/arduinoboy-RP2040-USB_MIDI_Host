@@ -1,0 +1,371 @@
+/* =============================================================================================
+   ARDUINOBOY WEB PROGRAMMER — design system
+   Same dark glass-card language as Foxwizard Patchling (Regime Radar lineage): dark slate bg,
+   floating rounded cards, Russo One display type. Accent swapped from Foxwizard's blue to a
+   Game Boy DMG green, since this is Arduinoboy's own tool, not Foxwizard's.
+   ============================================================================================= */
+
+:root {
+  --bg: #10150f;
+  --bg-soft: #161d14;
+  --card: #1a2417;
+  --card-border: rgba(178, 199, 168, 0.14);
+  --card-shadow: 0 20px 40px -18px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --box: #0e150c;
+  --box-border: rgba(178, 199, 168, 0.12);
+  --text: #e7f0e2;
+  --text-dim: #a3b39a;
+  --text-faint: #718169;
+  --accent: #6fcf3f;
+  --accent-strong: #4fae22;
+  --accent-soft: rgba(111, 207, 63, 0.16);
+  --amber: #f5a623;
+  --purple: #8b6fcf;
+  --green: #22c55e;
+  --red: #ef4444;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(111, 207, 63, 0.10), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(139, 111, 207, 0.08), transparent 45%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+h1, h2, h3, .display { font-family: 'Russo One', 'Inter', sans-serif; font-weight: 400; letter-spacing: 0.02em; }
+a { color: var(--accent); }
+
+::-webkit-scrollbar { height: 10px; width: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(178, 199, 168, 0.25); border-radius: 8px; }
+
+/* ---------------------------------------------------------------------------------------------
+   Header / toolbar
+   --------------------------------------------------------------------------------------------- */
+.toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(16, 21, 15, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.app-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 20px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+/* Same markup shape as our own Foxwizard Patchling's header - a bare <img class="brand-icon">
+   directly inside the <a>, no block-level wrapper - so the header keeps the same overall
+   height as Foxwizard's (an inline replaced element leaves a few pixels of baseline/descender
+   space below it inside an inline <a>; wrapping it in a flex div, as an earlier version of
+   this did, suppresses that and made this header measurably shorter than Foxwizard's). The
+   source SVG is solid black, so the badge look comes from background+padding on the img
+   itself rather than from a separate wrapper. */
+.brand-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  background: #9be564; /* same light green as the brand-text gradient's lighter stop */
+  padding: 2px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+.brand-text h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.1;
+  background: linear-gradient(90deg, #9be564, #6fcf3f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* h1's gradient text-fill (color: transparent) would otherwise inherit straight into this link and
+   make it invisible, so it needs its own explicit color rather than the parent's. */
+.brand-by {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  text-decoration: none;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.brand-by:hover { color: var(--accent); text-decoration: underline; }
+.brand-text p { margin: 2px 0 0; font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.03em; }
+
+.header-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--box);
+  border: 1px solid var(--box-border);
+  color: var(--text-dim);
+}
+.connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.connection-pill.connected { color: #bbf7d0; border-color: rgba(34, 197, 94, 0.35); background: rgba(34, 197, 94, 0.1); }
+.connection-pill.connected .connection-dot { background: var(--green); box-shadow: 0 0 8px rgba(34, 197, 94, 0.8); animation: pulseDot 2s ease-in-out infinite; }
+.connection-pill.disconnected { color: #fecaca; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.08); }
+.connection-pill.disconnected .connection-dot { background: var(--red); }
+.connection-pill.connecting .connection-dot { background: var(--amber); animation: pulseDot 1s ease-in-out infinite; }
+/* Clickable to disconnect only while connected or connecting - disconnected/unsupported/
+   denied states have nothing for a click to do, so they keep the default cursor. */
+.connection-pill.connected, .connection-pill.connecting { cursor: pointer; }
+.connection-pill.connected:hover, .connection-pill.connecting:hover { filter: brightness(1.15); }
+
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.toolbar {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+.toolbar-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.app-main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; display: flex; flex-direction: column; gap: 18px; }
+.app-footer { text-align: center; color: var(--text-faint); font-size: 0.75rem; padding: 30px 20px 50px; }
+
+/* ---------------------------------------------------------------------------------------------
+   Ports panel (device connection)
+   --------------------------------------------------------------------------------------------- */
+.ports-card { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.ports-card.needs-connection {
+  border-color: rgba(111, 207, 63, 0.5);
+  box-shadow: 0 0 0 1px rgba(111, 207, 63, 0.25), 0 0 40px 4px rgba(111, 207, 63, 0.35), 0 0 90px 10px rgba(111, 207, 63, 0.18);
+  animation: portsGlow 2.4s ease-in-out infinite;
+}
+@keyframes portsGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(111, 207, 63, 0.25), 0 0 40px 4px rgba(111, 207, 63, 0.35), 0 0 90px 10px rgba(111, 207, 63, 0.18); }
+  50% { box-shadow: 0 0 0 1px rgba(111, 207, 63, 0.4), 0 0 55px 8px rgba(111, 207, 63, 0.5), 0 0 110px 14px rgba(111, 207, 63, 0.28); }
+}
+.port-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 220px; min-width: 200px; }
+.port-field .card-title { margin-bottom: 6px; }
+
+/* ---------------------------------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------------------------------- */
+/* Corner shine + a soft behind-glow on every button, ported from Foxwizard Patchling
+   (same treatment, green instead of their blue) - applied to all buttons for full
+   consistency, including the primary CTA and Connect, not just the toolbar's. */
+.btn {
+  appearance: none;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: var(--box);
+  color: var(--text);
+  padding: 9px 15px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 16px -5px rgba(111, 207, 63, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 44px;
+  height: 44px;
+  background: radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 65%);
+  pointer-events: none;
+}
+.btn:hover { transform: translateY(-1px); border-color: rgba(178, 199, 168, 0.3); box-shadow: 0 0 22px -3px rgba(111, 207, 63, 0.55); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn-primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #06210a; box-shadow: 0 0 16px -5px rgba(111, 207, 63, 0.5); }
+.btn-primary:hover { background: #5fc22c; box-shadow: 0 0 22px -3px rgba(111, 207, 63, 0.7); }
+.btn-primary.has-unsaved::after {
+  content: "";
+  position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--amber); box-shadow: 0 0 6px rgba(245, 166, 35, 0.8); animation: pulseDot 2s ease-in-out infinite;
+}
+.btn-ghost { background: transparent; }
+.btn-danger { background: transparent; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+.btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* ---------------------------------------------------------------------------------------------
+   Cards
+   --------------------------------------------------------------------------------------------- */
+.card {
+  background: linear-gradient(180deg, var(--card), rgba(26, 36, 23, 0.85));
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  padding: 20px;
+}
+.card-title {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Explicit rather than relying on the h1/h2/h3 selector below picking this up - this
+     class also gets applied to <label> elements (Mode, MIDI In/Out) that need the same
+     heading look but stay a real <label> for their form control's accessibility. */
+  font-family: 'Russo One', 'Inter', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.card-title .card-title-sub { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 0.72rem; color: var(--text-faint); }
+
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+
+/* #settingsRoot's own direct children (Mode card, mGB card, this 4-up grid, the MIDI Out
+   row) had no spacing defined between them at all - each card's own 20px padding is
+   inside it, but nothing set the gap between consecutive cards, so they butted up
+   against each other with zero visual breathing room below. */
+.cards-grid-wrap { display: flex; flex-direction: column; gap: 18px; }
+
+/* Fixed column counts, rather than auto-fit's minmax(260px,1fr): at this container's
+   width auto-fit only ever fit 3 of the 4-up row's cards per row, leaving LiveMap
+   orphaned on its own row. Letting these shrink guarantees the intended column count
+   always holds down to the single shared mobile breakpoint below - same approach
+   Foxwizard Patchling's own .settings-grid uses (fixed columns down to one breakpoint,
+   then straight to a single column), rather than several different one-off collapse
+   points per grid. */
+.cards-grid-4up { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+@media (max-width: 640px) {
+  .cards-grid, .cards-grid-4up, .cols-2, .cols-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-row { display: flex; flex-direction: column; gap: 5px; }
+.field-row label { font-size: 0.75rem; color: var(--text-dim); }
+.field-row.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* ---------------------------------------------------------------------------------------------
+   Form controls
+   --------------------------------------------------------------------------------------------- */
+select, input[type="number"] {
+  appearance: none;
+  background: var(--bg-soft);
+  border: 1px solid var(--box-border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 0.84rem;
+  font-family: inherit;
+}
+select:focus, input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+select:disabled, input:disabled { opacity: 0.5; }
+input[type="number"] { width: 100%; }
+
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track { position: relative; width: 40px; height: 22px; border-radius: 999px; background: #374254; transition: background 0.2s ease; flex-shrink: 0; }
+.switch-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: transform 0.2s ease; }
+.switch input:checked + .switch-track { background: var(--accent-strong); }
+.switch input:checked + .switch-track .switch-thumb { transform: translateX(18px); }
+.switch-label { font-size: 0.82rem; color: var(--text); }
+
+.field-note { font-size: 0.7rem; color: var(--text-faint); margin: 2px 0 0; }
+
+/* ---------------------------------------------------------------------------------------------
+   Mode selector — the top-level, most-important control
+   --------------------------------------------------------------------------------------------- */
+.mode-card { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+.mode-select-wrap { display: flex; flex-direction: column; gap: 6px; flex: 1 1 260px; }
+.mode-select-wrap select { font-size: 1rem; padding: 10px 12px; }
+/* This flex column already spaces its children with gap, same as .port-field - .card-title's
+   own margin-bottom would stack on top of that and space the label from its select too far. */
+.mode-select-wrap .card-title { margin-bottom: 0; }
+.mode-current-badge {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 4px 10px;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   LSDJ MIDI OUT table
+   --------------------------------------------------------------------------------------------- */
+.table-scroll { overflow-x: auto; }
+.midiout-table { border-collapse: separate; border-spacing: 0 6px; width: 100%; min-width: 760px; }
+.midiout-table th {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-faint); text-align: center; padding: 0 4px 4px;
+}
+.midiout-table th.row-label-head { text-align: left; }
+.midiout-table td { background: var(--box); border: 1px solid var(--box-border); padding: 6px; text-align: center; }
+.midiout-table td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); text-align: left; font-weight: 700; color: var(--text); padding-left: 12px; }
+.midiout-table td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.midiout-table select, .midiout-table input[type="number"] { width: 100%; min-width: 54px; padding: 5px 4px; font-size: 0.78rem; text-align: center; }
+.midiout-table .cc-numbers-group { display: flex; gap: 3px; }
+
+/* ---------------------------------------------------------------------------------------------
+   Talking-to-device overlay (shown briefly during save/restore/handshake)
+   --------------------------------------------------------------------------------------------- */
+.busy-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(16, 21, 15, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(3px);
+}
+/* Author styles beat the UA stylesheet's [hidden]{display:none} regardless of specificity, so
+   the display:flex above would otherwise win even while the hidden attribute is set. */
+.busy-overlay[hidden] { display: none; }
+.busy-card {
+  background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow); padding: 24px 30px; text-align: center; min-width: 220px;
+}
+.busy-spinner {
+  width: 32px; height: 32px; margin: 0 auto 12px; border-radius: 50%;
+  border: 3px solid var(--box-border); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.busy-text { font-size: 0.85rem; color: var(--text); margin: 0; }
+
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow); padding: 10px 18px; font-size: 0.82rem; color: var(--text);
+  z-index: 60; opacity: 0; transition: opacity 0.2s ease;
+}
+.toast.show { opacity: 1; }
+.toast.error { color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+.toast.success { color: #bbf7d0; border-color: rgba(34, 197, 94, 0.35); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .app-header-inner { padding: 12px 14px 4px; }
+  .toolbar { padding: 10px 14px; }
+  .app-main { padding: 16px 14px 70px; }
+  .cards-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Arduinoboy Web Programmer</title>
+  <meta name="description" content="Programming software for any Arduinoboy. Runs in Chrome via Web MIDI, no install required.">
+
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+
+  <meta name="theme-color" content="#10150f">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <a href="https://woz.lol" target="_blank" rel="noopener" title="woz.lol">
+          <img src="icons/saucer_logo.svg" alt="" class="brand-icon">
+        </a>
+        <div class="brand-text">
+          <h1>ARDUINOBOY WEB EDITOR <a class="brand-by" href="https://woz.lol" target="_blank" rel="noopener">by WOZ.LOL</a></h1>
+          <p>Game Boy MIDI interface for LittleSoundDJ, Nanoloop, and mGB</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="connectionPill" class="connection-pill disconnected">
+          <span class="connection-dot"></span>
+          <span id="connectionLabel">Not connected</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar-sticky">
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button id="loadFromDeviceBtn" class="btn" disabled>Reload from Device</button>
+        <button id="saveToDeviceBtn" class="btn btn-primary" disabled>Save to Device</button>
+        <button id="restoreDefaultsBtn" class="btn btn-danger" disabled>Restore Defaults</button>
+      </div>
+      <div class="toolbar-group">
+        <button id="downloadPresetBtn" class="btn btn-ghost">Download Preset</button>
+        <label class="btn btn-ghost" for="uploadPresetInput">
+          Upload Preset
+          <input type="file" id="uploadPresetInput" accept=".json,application/json" hidden>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <main class="app-main">
+
+    <section class="card ports-card needs-connection" aria-label="MIDI port selection">
+      <div class="port-field">
+        <label for="midiInSelect" class="card-title">Arduinoboy MIDI In</label>
+        <select id="midiInSelect"><option value="">-- select a MIDI input --</option></select>
+      </div>
+      <div class="port-field">
+        <label for="midiOutSelect" class="card-title">Arduinoboy MIDI Out</label>
+        <select id="midiOutSelect"><option value="">-- select a MIDI output --</option></select>
+      </div>
+      <button id="connectBtn" class="btn btn-primary">Connect</button>
+    </section>
+
+    <section id="settingsRoot" class="cards-grid-wrap" hidden>
+
+      <div class="cards-grid cols-2">
+
+        <section class="card mode-card" aria-label="Mode">
+          <div class="mode-select-wrap">
+            <label for="modeSelect" class="card-title">Mode</label>
+            <select id="modeSelect">
+              <option value="0">1: LSDJ Slave Mode</option>
+              <option value="1">2: LSDJ Master Mode</option>
+              <option value="2">3: LSDJ Keyboard Mode</option>
+              <option value="3">4: Nanoloop Mode</option>
+              <option value="4">5: mGB Mode</option>
+              <option value="5">6: LSDJ LiveMap / SyncMap Mode</option>
+              <option value="6">7: LSDJ MIDI Out Mode</option>
+            </select>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="forceModeCheck">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+            <span class="switch-label">Force this mode at boot (ignore the mode button / EEPROM)</span>
+          </label>
+        </section>
+
+        <section class="card" aria-label="LSDJ MIDI Out Advanced Settings">
+          <h2 class="card-title">LSDJ MIDI Out Advanced Settings</h2>
+          <div class="cards-grid cols-2">
+            <div class="field-row"><label for="bitDelayInput">Bit Check Delay</label><input type="number" id="bitDelayInput" min="0" max="127"></div>
+            <div class="field-row"><label for="bitMultInput">Multiplier</label><input type="number" id="bitMultInput" min="0" max="127"></div>
+          </div>
+          <p class="field-note">Delay between each time the Arduinoboy checks the Game Boy for new incoming messages. Lower numbers tend to freeze LSDJ.</p>
+        </section>
+
+      </div>
+
+      <section class="card" aria-label="mGB Midi Settings">
+        <h2 class="card-title">mGB Midi Settings</h2>
+        <div class="cards-grid cols-5">
+          <div class="field-row"><label for="mgbCh0">PU1 Channel</label><select id="mgbCh0" class="ch-select"></select></div>
+          <div class="field-row"><label for="mgbCh1">PU2 Channel</label><select id="mgbCh1" class="ch-select"></select></div>
+          <div class="field-row"><label for="mgbCh2">WAV Channel</label><select id="mgbCh2" class="ch-select"></select></div>
+          <div class="field-row"><label for="mgbCh3">NOI Channel</label><select id="mgbCh3" class="ch-select"></select></div>
+          <div class="field-row"><label for="mgbCh4">POLY Channel</label><select id="mgbCh4" class="ch-select"></select></div>
+        </div>
+      </section>
+
+      <div class="cards-grid cards-grid-4up">
+
+        <section class="card" aria-label="LSDJ Slave Mode Settings">
+          <h2 class="card-title">LSDJ Slave Mode Settings</h2>
+          <div class="field-row">
+            <label for="slaveChSelect">Midi Channel</label>
+            <select id="slaveChSelect" class="ch-select"></select>
+          </div>
+        </section>
+
+        <section class="card" aria-label="LSDJ Master Mode Settings">
+          <h2 class="card-title">LSDJ Master Mode Settings</h2>
+          <div class="field-row">
+            <label for="masterChSelect">Midi Channel</label>
+            <select id="masterChSelect" class="ch-select"></select>
+          </div>
+        </section>
+
+        <section class="card" aria-label="Keyboard Mode Settings">
+          <h2 class="card-title">Keyboard Mode Settings</h2>
+          <div class="field-row">
+            <label for="keyboardChSelect">Midi Channel</label>
+            <select id="keyboardChSelect" class="ch-select"></select>
+          </div>
+          <label class="switch" style="margin-top:10px">
+            <input type="checkbox" id="keyboardCompatCheck">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+            <span class="switch-label">Compatibility Mode</span>
+          </label>
+        </section>
+
+        <section class="card" aria-label="LSDJ LiveMap / SyncMap Settings">
+          <h2 class="card-title">LSDJ LiveMap / SyncMap Settings</h2>
+          <div class="field-row">
+            <label for="livemapChSelect">Midi Channel</label>
+            <select id="livemapChSelect" class="ch-select"></select>
+          </div>
+          <p class="field-note">Uses this channel and the next one up.</p>
+        </section>
+
+      </div>
+
+      <section class="card" aria-label="LSDJ MIDI Out Mode Settings">
+        <h2 class="card-title">LSDJ MIDI Out Mode Settings</h2>
+        <div class="table-scroll">
+          <table class="midiout-table" id="midioutTable">
+            <thead>
+              <tr>
+                <th class="row-label-head"></th>
+                <th>Note Midi Ch</th>
+                <th>CC Midi Ch</th>
+                <th>CC#0</th><th>CC#1</th><th>CC#2</th><th>CC#3</th><th>CC#4</th><th>CC#5</th><th>CC#6</th>
+                <th>CC Mode</th>
+                <th>CC Scaling</th>
+              </tr>
+            </thead>
+            <tbody><!-- 4 rows (PU1/PU2/WAV/NOI) filled in by app.js --></tbody>
+          </table>
+        </div>
+      </section>
+
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p><a href="https://woz.lol" target="_blank" rel="noopener">woz.lol</a> &middot; ARDUINOBOY WEB PROGRAMMER &middot; Speaks the same Programmer Mode sysex protocol as the original trash80 Max/MSP editor &middot; Works in Chrome and other Chromium-based browsers. Firefox and Safari don't support Web MIDI yet.</p>
+  </footer>
+
+  <div id="busyOverlay" class="busy-overlay" hidden>
+    <div class="busy-card">
+      <div class="busy-spinner"></div>
+      <p class="busy-text" id="busyText">Talking to the device&hellip;</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
