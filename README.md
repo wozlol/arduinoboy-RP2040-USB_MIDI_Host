@@ -43,13 +43,13 @@ The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. T
 * Accurate MIDI Sync, Start and Stop commands.
 * Push Button selector sets the sync/state modes [(7 modes available)](#modes-details)
 * [mGB](https://github.com/trash80/mGB)
- Mode: Full MIDI in support across all Gameboy Channels, including a unique "poly" mode allows you to play your Game Boy like a synthesizer. 
+ Mode: Full MIDI in support across all 4 Gameboy Channels, including a 3-voice polyphony channel which allows you to play your Game Boy like a synthesizer. 
 * Midi Out Doubles as a Midi Thru
 * "Filtering" data for only sync messages, no dedicated MIDI line required.
 * Can be powered by the Game Boy's gamelink port.
-* USB upgradeable via Arduino.
-* Midi settings configurable using a Mac/PC editor built in Max.
-* Tested and works with DMG (Original), Gameboy Color, and Advance/SP.
+* USB upgradeable via Arduino. Short firmware pins for firmware update.
+* Midi settings configurable using the new no-install web editor at https://woz.lol/arduinoboy/ or the old Mac/PC editor built in Max.
+* Tested and works with DMG (Original), Gameboy Color, and Advance/SP. mGB will not work on an Advance with an Advance cart, an Advance must use a Gameboy cart.
 
 ## Modes Details
 #### Mode 1 - LSDJ as MIDI Slave Sync
@@ -113,9 +113,9 @@ Sync [Nanoloop.](http://www.nanoloop.com/) to external midi clock signals sent t
 In Nanoloop, the sync mode should be set to `slave`.
 
 #### Mode 5 Full MIDI with mGB
-[mGB](https://github.com/trash80/mGB) is a Gameboy cartridge program (You need a Flash Cart and Transfer hardware) That enables the Gameboy to act as a MIDI supported sound module that allows full control of the Game Boy sound hardware. 
+[mGB](https://github.com/trash80/mGB) is a Gameboy cartridge program (You need a Flash Cart and Transfer hardware) That enables the Gameboy to act as a MIDI supported sound module that allows full control of the Game Boy sound hardware.
 
-It works with the old DMG Gameboy as well as GBC/GBA.
+It works with the old DMG Gameboy as well as GBC/GBA. Game Boy Advance must use a non-Advance Game Boy cart.
 
 On the RP2040 build, mGB mode also provides a three-way MIDI thru. MIDI received
 from the serial MIDI port, built-in USB MIDI device port, or USB MIDI host port
@@ -143,9 +143,12 @@ In LSDJ the `sync` mode should be set to `Midiout`.
 
 *This requires a special version of LSDJ, which can be found in your account on the [LSDJ website](http://littlesounddj.com/lsd/latest/full_version/).*
 
+## New Web Editor
+![Editor gui](https://woz.lol/wp-content/uploads/2026/09/arduinoboy_web_editor.png)
+[The No-Install Web Editor for Arduinoboy](https://woz.lol/arduinoboy/)
+Allows you to edit the various global midi settings of your arduinoboy without editing or flashing code, over midi, from your Chrome browser.
 
 ## Max Editor
-![Editor gui](Editor/editor.png)
 [The Arduinoboy Editor for Max](https://github.com/trash80/Arduinoboy/tree/master/Editor) for PC/OSX machines is a gui editor that allows you to edit the various global midi settings of your arduinoboy without editing or flashing code, over midi. It used to required the now deprecated Max Runtime, but you can also run it using a demo of [Cycling '74's Max application](https://cycling74.com/downloads/)
 
 ### Maxpat Settings
