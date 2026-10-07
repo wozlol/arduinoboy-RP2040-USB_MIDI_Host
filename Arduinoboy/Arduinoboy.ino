@@ -304,7 +304,10 @@ struct UsbMidiMessage {
   uint8_t data1;
   uint8_t data2;
   uint8_t length;
+  uint8_t source;
 };
+constexpr uint8_t USB_MIDI_SOURCE_DEVICE = 0;
+constexpr uint8_t USB_MIDI_SOURCE_HOST = 1;
 bool usbMidiReadMessage(UsbMidiMessage *msg);
 void usbMidiMgbThruToUsb(uint8_t cin, uint8_t status, uint8_t data1, uint8_t data2);
 void usbMidiMgbThruToAll(const UsbMidiMessage *msg);

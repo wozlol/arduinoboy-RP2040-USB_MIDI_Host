@@ -255,8 +255,8 @@ void modeMidiGbUsbMidiReceive()
 #ifdef USE_RP2040
     UsbMidiMessage rx;
     while(usbMidiReadMessage(&rx)) {
-        // Only MGB mode mirrors every received USB message to DIN, USB device,
-        // and every connected USB host MIDI output, making this a USB MIDI adapter.
+        // Only MGB mode forwards received USB messages to DIN and the other USB
+        // port (device to host, host to device), making this a USB MIDI adapter.
         usbMidiMgbThruToAll(&rx);
         if(rx.status >= 0xF0 || (rx.cin >= 0x04 && rx.cin <= 0x07)) continue;
 
