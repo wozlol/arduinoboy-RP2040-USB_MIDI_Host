@@ -99,10 +99,12 @@ void modeLSDJKeyboard()
          //We have our note and channel, so call our note function...
 
          playLSDJNote(midiData[0], midiData[1], incomingMidiByte);
+         if(midiData[0] == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
          midiData[1] = false; //Set the note to false, forcing to capture the next note
       }
     } else if (midiProgramChange) {
         changeLSDJInstrument(midiData[0], incomingMidiByte);
+        if(midiData[0] == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
         midiProgramChange = false;
         midiData[0] = false;
     }
