@@ -39,7 +39,12 @@ The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. T
 * Put the 22 ohm resistors near the RP2040.
 
 ### Building the firmware
-Run `arduino-cli compile --output-dir Arduinoboy/build Arduinoboy` from the repository folder. `Arduinoboy/sketch.yaml` pins the board package (arduino-pico 5.6.1) and MIDI Library 5.0.2, and uses the modified Adafruit TinyUSB Library and Pico PIO USB copies in `Arduinoboy/libraries`. The first build downloads the pinned parts. The firmware is `Arduinoboy/build/Arduinoboy.ino.uf2`. If you build another way, use those two library copies and remove any other Adafruit TinyUSB Library.
+Use board package arduino-pico 5.6.1 and MIDI Library 5.0.2. Board: Waveshare RP2040 Zero, CPU Speed 240 MHz, USB Stack Adafruit TinyUSB. The sketch needs the two library copies in `Arduinoboy/libraries` (modified Adafruit TinyUSB Library and Pico PIO USB). The Arduino build ignores that folder by itself, so use one of these:
+
+* Command line, from the repository folder: `arduino-cli compile --fqbn rp2040:rp2040:waveshare_rp2040_zero:freq=240,usbstack=tinyusb --library Arduinoboy/libraries/Adafruit_TinyUSB_Library --library Arduinoboy/libraries/Pico_PIO_USB --output-dir Arduinoboy/build Arduinoboy`. The firmware is `Arduinoboy/build/Arduinoboy.ino.uf2`.
+* Arduino IDE: copy the two folders from `Arduinoboy/libraries` into `Documents/Arduino/libraries`, replacing any Adafruit TinyUSB Library or Pico PIO USB already there, then open `Arduinoboy/Arduinoboy.ino` and build.
+
+If the build stops with "Stock Adafruit TinyUSB Library found", Arduino picked a different copy of the library.
 
 ## Current Features
 * Affordable and easily accessible parts for assembly.

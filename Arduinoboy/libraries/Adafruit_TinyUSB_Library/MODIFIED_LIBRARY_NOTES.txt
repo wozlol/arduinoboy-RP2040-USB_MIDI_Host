@@ -11,8 +11,8 @@ The four changes
 3. src/portable/raspberrypi/pio_usb/hcd_pio_usb.c: 10 ms reset recovery delay before enumeration (USB 2.0 T_RSTRCY).
 
 If the build stops with "Stock Adafruit TinyUSB Library found"
-Arduino picked another copy of the library. Delete the copy in Documents/Arduino/libraries, or build with:
-arduino-cli compile --fqbn rp2040:rp2040:waveshare_rp2040_zero:freq=240,usbstack=tinyusb --library Arduinoboy/libraries/Adafruit_TinyUSB_Library Arduinoboy
+Arduino picked another copy of the library. Copy this folder into Documents/Arduino/libraries (replacing the other one), or build with:
+arduino-cli compile --fqbn rp2040:rp2040:waveshare_rp2040_zero:freq=240,usbstack=tinyusb --library Arduinoboy/libraries/Adafruit_TinyUSB_Library --library Arduinoboy/libraries/Pico_PIO_USB Arduinoboy
 
 Updating to a newer Adafruit release
 Copy the new release over src/, redo the changes above, and rebuild. Check the build finds this copy and not another.

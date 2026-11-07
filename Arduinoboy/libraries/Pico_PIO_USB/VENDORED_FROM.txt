@@ -26,7 +26,7 @@ arpnmidi/legacy/USB2514B_PIO_USB_HOST_HANDOFF.txt, items 9 and 21, for the
 full investigation this patch comes from.
 
 How the build uses this copy
-The Arduino build normally ignores a libraries folder inside the sketch. Arduinoboy/sketch.yaml fixes that: it tells arduino-cli to use this copy, our modified Adafruit TinyUSB Library copy next to it, and pinned versions of the board package and MIDI Library. Build with `arduino-cli compile Arduinoboy` and every machine gets the same result no matter what is installed globally.
+The Arduino build ignores a libraries folder inside the sketch. Use this copy and our modified Adafruit TinyUSB Library copy next to it by passing both with --library, or by copying both into Documents/Arduino/libraries. The exact commands are in the README under Building the firmware.
 
 The 10 ms reset recovery delay in hcd_pio_usb.c now lives in libraries/Adafruit_TinyUSB_Library, see its MODIFIED_LIBRARY_NOTES.txt.
 
