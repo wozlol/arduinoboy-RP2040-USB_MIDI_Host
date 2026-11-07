@@ -44,6 +44,7 @@ Don't want to build it? Use the ready-made file in the `Firmware` folder and fol
 To build it yourself in the Arduino IDE:
 1. In Boards Manager install "Raspberry Pi Pico/RP2040" by Earle F. Philhower, III, version 5.6.1. In Library Manager install "MIDI Library", version 5.0.2.
 2. One-time step: copy the two folders `Adafruit_TinyUSB_Library` and `Pico_PIO_USB` from `Arduinoboy/libraries` into your `Documents/Arduino/libraries` folder, and say yes to replace. Arduino does not look in the repo folder by itself. This swaps in our edited copies for all your projects, and our USB library turns off USB host support for keyboards, storage and serial. If you use those elsewhere, move your original folders somewhere outside `libraries` first.
+   On a Mac you can double-click `Install-Libraries-Mac.command` in the repository folder instead. It shows what it will do and asks first, and it moves your own copies to `Documents/Arduino_library_backups` before copying ours in. If macOS refuses to open it, right-click the file and choose Open. On Windows and Linux, copy the folders by hand.
 3. Open `Arduinoboy/Arduinoboy.ino`, the file inside the inner `Arduinoboy` folder.
 4. Choose Tools > Board: Waveshare RP2040 Zero, CPU Speed: 240 MHz, USB Stack: Adafruit TinyUSB. Press Upload.
 
