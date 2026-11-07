@@ -32,12 +32,6 @@ void modeLSDJSlaveSync()
   wdFeed(WD_PHASE_MODE_LOOP);
   #endif
   modeLSDJSlaveSyncUsbMidiReceive();
-  #ifdef USE_RP2040
-  // modeLSDJSlaveSyncUsbMidiReceive() above has no RP2040 branch (Teensy/Leonardo only),
-  // so without this, incoming USB-device sysex - including a web/Max programmer's request
-  // to enter Programmer Mode - is never read at all while sitting in this mode.
-  usbMidiUpdate();
-  #endif
   if (serial->available()) {                 //If MIDI Byte Availaibleleleiel
     incomingMidiByte = serial->read();           //Read it
 
@@ -169,6 +163,17 @@ void usbMidiLSDJSlaveRealtimeMessage(uint8_t message)
 
 void modeLSDJSlaveSyncUsbMidiReceive()
 {
+#ifdef USE_RP2040
+    // usbMidiReadMessage() also polls the USB device port, so programmer sysex is still read here.
+    UsbMidiMessage rx;
+    while(usbMidiReadMessage(&rx)) {
+      if(rx.status >= 0xF8) {
+        usbMidiLSDJSlaveRealtimeMessage(rx.status);                  // clock, start, continue, stop
+      } else if(rx.status == (0x90 + memory[MEM_LSDJSLAVE_MIDI_CH]) && rx.data2 > 0) {
+        getSlaveSyncEffect(rx.data1);                                // sync effect note, same rule as DIN
+      }
+    }
+#endif
 #ifdef USE_TEENSY
 
     while(usbMIDI.read(memory[MEM_LSDJSLAVE_MIDI_CH]+1)) {

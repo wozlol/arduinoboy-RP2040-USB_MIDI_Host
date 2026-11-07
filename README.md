@@ -38,6 +38,9 @@ The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. T
 * Twist D+ and D-, and keep them short.
 * Put the 22 ohm resistors near the RP2040.
 
+### Building the firmware
+Run `arduino-cli compile --output-dir Arduinoboy/build Arduinoboy` from the repository folder. `Arduinoboy/sketch.yaml` pins the board package (arduino-pico 5.6.1) and MIDI Library 5.0.2, and uses the modified Adafruit TinyUSB Library and Pico PIO USB copies in `Arduinoboy/libraries`. The first build downloads the pinned parts. The firmware is `Arduinoboy/build/Arduinoboy.ino.uf2`. If you build another way, use those two library copies and remove any other Adafruit TinyUSB Library.
+
 ## Current Features
 * Affordable and easily accessible parts for assembly.
 * Accurate MIDI Sync, Start and Stop commands.

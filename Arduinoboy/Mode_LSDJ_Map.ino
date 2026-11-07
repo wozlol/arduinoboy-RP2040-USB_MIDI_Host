@@ -31,12 +31,6 @@ void modeLSDJMap()
   #endif
 
   modeLSDJMapUsbMidiReceive();
-  #ifdef USE_RP2040
-  // modeLSDJMapUsbMidiReceive() above has no RP2040 branch (Teensy/Leonardo only), so
-  // without this, incoming USB-device sysex - including a web/Max programmer's request
-  // to enter Programmer Mode - is never read at all while sitting in this mode.
-  usbMidiUpdate();
-  #endif
   checkMapQueue();
   if (serial->available()) {                 //If MIDI Byte Availaibleleleiel
     incomingMidiByte = serial->read();           //Read it
@@ -180,6 +174,33 @@ void usbMidiLSDJMapRealtimeMessage(uint8_t message)
 
 void modeLSDJMapUsbMidiReceive()
 {
+#ifdef USE_RP2040
+    // usbMidiReadMessage() also polls the USB device port, so programmer sysex is still read here.
+    UsbMidiMessage rx;
+    while(usbMidiReadMessage(&rx)) {
+      if(rx.status >= 0xF8) {
+        usbMidiLSDJMapRealtimeMessage(rx.status);                    // clock, start, continue, stop
+        continue;
+      }
+      const uint8_t ch = rx.status & 0x0F;
+      if(ch != memory[MEM_LIVEMAP_CH] && ch != (memory[MEM_LIVEMAP_CH] + 1)) continue;
+
+      switch(rx.status & 0xF0) {
+        case 0x80:                                                   // note off
+          setMapByte(0xFE, true);
+          break;
+        case 0x90:                                                   // note on, velocity 0 is a note off like DIN
+          if(rx.data2 == 0) {
+            setMapByte(0xFE, true);
+          } else if(ch == (memory[MEM_LIVEMAP_CH] + 1)) {
+            setMapByte(128 + rx.data1, true);
+          } else {
+            setMapByte(rx.data1, true);
+          }
+          break;
+      }
+    }
+#endif
 #ifdef USE_TEENSY
 
     while(usbMIDI.read()) {

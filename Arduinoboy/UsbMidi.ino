@@ -1,5 +1,12 @@
 #if defined(USE_RP2040)
 
+// This sketch needs the modified Adafruit TinyUSB Library that ships in Arduinoboy/libraries.
+// If the stock library from the Library Manager is installed, Arduino may pick it instead.
+// Remove that copy or build with: --library Arduinoboy/libraries/Adafruit_TinyUSB_Library
+#ifndef ARDUINOBOY_MODIFIED_TINYUSB
+#error "Stock Adafruit TinyUSB Library found. Use the modified copy in Arduinoboy/libraries/Adafruit_TinyUSB_Library, see its MODIFIED_LIBRARY_NOTES.txt"
+#endif
+
 /*
   RP2040 USB MIDI support added by woz.lol.
 
@@ -67,9 +74,9 @@ UsbMidiDevice usbMidiDevices[MAX_USB_MIDI_DEVICES];
 // that alone can't distinguish "quietly waiting for the next note" from "stuck forever
 // on a transfer that will never complete". USB_MIDI_RX_SILENCE_MS is how long we let a
 // mounted device go without producing a single byte before we stop assuming it's just
-// idle and force tuh_midi_rx_rearm() to abort + resubmit that pending transfer. See
-// tuh_midi_rx_rearm() in Adafruit_TinyUSB_Library src/class/midi/midi_host.c - it's a
-// real, already-available function, not something added here.
+// idle and force tuh_midi_rx_rearm() to abort + resubmit that pending transfer.
+// tuh_midi_rx_rearm() is NOT in the stock Adafruit TinyUSB Library. We added it in our
+// modified copy at Arduinoboy/libraries/Adafruit_TinyUSB_Library (src/class/midi/midi_host.c).
 constexpr uint32_t USB_MIDI_RX_SILENCE_MS = 2000;
 
 extern "C" bool tuh_midi_rx_rearm(uint8_t idx);
@@ -211,8 +218,11 @@ uint8_t usbMidiCodeIndex(uint8_t status, uint8_t length)
 
 void usbMidiWriteRaw(uint8_t status, uint8_t data1, uint8_t data2, uint8_t length)
 {
+  // Every sync/note/CC message the modes send over USB goes out both the USB-C device
+  // port and the USB host port (core1 drains the host queue to every mounted device).
   uint8_t packet[4] = {usbMidiCodeIndex(status, length), status, data1, data2};
   usb_midi.writePacket(packet);
+  usbMidiHostTxEnqueue(packet);
 }
 
 bool usbMidiHostTxEnqueue(const uint8_t packet[4])

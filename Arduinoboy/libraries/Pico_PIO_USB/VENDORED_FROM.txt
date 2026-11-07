@@ -11,14 +11,6 @@ mode where USB host MIDI input silently and permanently stops receiving notes
 (DIN and the device-side USB MIDI port keep working fine; only the host port
 dies) and nothing short of a reset brings it back.
 
-Arduino has no per-sketch way to override a #define buried inside a library's
-own .c file, so the only two ways to apply this are (a) hand-edit whatever
-copy of Pico_PIO_USB happens to be installed globally on the machine doing the
-build, which is not reproducible for anyone else building this repo, or (b)
-vendor a patched copy the sketch itself carries. This is (b). See
-Arduinoboy/Watchdog_Diagnostics.ino and UsbMidi.ino for the rest of the USB
-host reliability work this is part of.
-
 Patch applied
 -------------
 src/pio_usb_host.c: PIO_USB_BULK_IN_ACCEPT_ANY_DATA_PID default changed from
@@ -33,34 +25,14 @@ USB2514B hub) in the sibling arpnmidi project - see
 arpnmidi/legacy/USB2514B_PIO_USB_HOST_HANDOFF.txt, items 9 and 21, for the
 full investigation this patch comes from.
 
-Known gap
----------
-A second related patch - a 10ms USB 2.0 T_RSTRCY delay in
-hcd_port_reset_end() - lives in Adafruit_TinyUSB_Library's
-src/portable/raspberrypi/pio_usb/hcd_pio_usb.c, not in this library, and is
-NOT vendored here (that library is much larger, and arpnmidi's own notes
-describe this specific delay as not solving the stall by itself). It's
-currently only a hand-edit on the machine this was developed on. If Arduinoboy
-needs to guarantee this one too, that library would need vendoring the same
-way.
+How the build uses this copy
+The Arduino build normally ignores a libraries folder inside the sketch. Arduinoboy/sketch.yaml fixes that: it tells arduino-cli to use this copy, our modified Adafruit TinyUSB Library copy next to it, and pinned versions of the board package and MIDI Library. Build with `arduino-cli compile Arduinoboy` and every machine gets the same result no matter what is installed globally.
 
-How resolution works, and its one limitation
------------------------------------------------
-Arduino's build tooling looks for a Pico_PIO_USB-compatible library at the
-sketch level as a fallback if none is found in the user's sketchbook
-(Documents/Arduino/libraries on most installs) or bundled with the board core.
-If a machine has NO Pico_PIO_USB installed globally, this vendored copy is
-what gets used - verified by compiling with the global library moved aside.
-If a machine DOES already have some other Pico_PIO_USB installed globally
-(patched or not), that one currently wins instead of this vendored copy - this
-is a real Arduino library-resolution limitation, not something this repo can
-force. In that case the global copy needs the same one-line change (see
-"Patch applied" above) applied by hand.
+The 10 ms reset recovery delay in hcd_pio_usb.c now lives in libraries/Adafruit_TinyUSB_Library, see its MODIFIED_LIBRARY_NOTES.txt.
 
 Re-syncing from a newer upstream
 ---------------------------------
 1. Get a clean copy of the target Pico-PIO-USB version.
 2. Reapply the PIO_USB_BULK_IN_ACCEPT_ANY_DATA_PID default change above.
 3. Replace src/ here with it (keep this file and LICENSE).
-4. Rebuild with the global Pico_PIO_USB library temporarily moved aside to
-   confirm this vendored copy alone is still sufficient (exit code 0).
+4. Rebuild with `arduino-cli compile Arduinoboy` and confirm exit code 0.

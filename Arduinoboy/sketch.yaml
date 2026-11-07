@@ -1,0 +1,11 @@
+default_profile: host-edition
+profiles:
+  host-edition:
+    fqbn: rp2040:rp2040:waveshare_rp2040_zero:freq=240,usbstack=tinyusb
+    platforms:
+      - platform: rp2040:rp2040 (5.6.1)
+        platform_index_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+    libraries:
+      - MIDI Library (5.0.2)
+      - dir: libraries/Adafruit_TinyUSB_Library
+      - dir: libraries/Pico_PIO_USB

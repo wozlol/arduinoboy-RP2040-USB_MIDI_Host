@@ -1,0 +1,18 @@
+Modified copy of Adafruit TinyUSB Library 3.7.7
+Original: https://github.com/adafruit/Adafruit_TinyUSB_Arduino (tag 3.7.7)
+License: MIT (see LICENSE)
+
+Why this copy is here
+The Arduinoboy sketch needs four changes to this library. The stock library does not have them, so a build with the stock library fails to link (undefined reference to tuh_midi_rx_rearm) or runs without the USB host fixes. Keeping our copy in the repo makes every build the same.
+
+The four changes
+1. src/class/midi/midi_host.c and midi_host.h: new function tuh_midi_rx_rearm(). It aborts and restarts a stuck USB MIDI receive. Also ignores trailing bytes that are not a full 4-byte USB MIDI packet.
+2. src/arduino/ports/rp2040/tusb_config_rp2040.h: CFG_TUH_MIDI raised from 1 to the device maximum (3 for a hub), enumeration buffer 256 to 512, CFG_TUH_TASK_EVENTS_PER_RUN set to 0 (handle all queued events), MSC, HID and CDC host turned off. Also defines ARDUINOBOY_MODIFIED_TINYUSB, which the sketch checks.
+3. src/portable/raspberrypi/pio_usb/hcd_pio_usb.c: 10 ms reset recovery delay before enumeration (USB 2.0 T_RSTRCY).
+
+If the build stops with "Stock Adafruit TinyUSB Library found"
+Arduino picked another copy of the library. Delete the copy in Documents/Arduino/libraries, or build with:
+arduino-cli compile --fqbn rp2040:rp2040:waveshare_rp2040_zero:freq=240,usbstack=tinyusb --library Arduinoboy/libraries/Adafruit_TinyUSB_Library Arduinoboy
+
+Updating to a newer Adafruit release
+Copy the new release over src/, redo the changes above, and rebuild. Check the build finds this copy and not another.

@@ -87,6 +87,9 @@ boolean checkLSDJStopped()
 #ifdef USE_TEENSY
       usbMIDI.sendRealTime(0xFC);
 #endif
+#ifdef USE_RP2040
+      usbMidiSendRTMessage(0xFC);
+#endif
 #ifdef USE_LEONARDO
       midiEventPacket_t event = {0x0F, 0xFC};
       MidiUSB.sendMIDI(event);
@@ -118,6 +121,10 @@ void sendMidiClockSlaveFromLSDJ()
       usbMIDI.sendNoteOn(memory[MEM_LSDJMASTER_MIDI_CH]+1,readGbSerialIn,0x7F);
       usbMIDI.sendRealTime(0xFA);
 #endif
+#ifdef USE_RP2040
+      usbMidiSendThreeByteMessage(0x90+memory[MEM_LSDJMASTER_MIDI_CH], readGbSerialIn, 0x7F);
+      usbMidiSendRTMessage(0xFA);
+#endif
 #ifdef USE_LEONARDO
       midiEventPacket_t event = {0x09, 0x90 | memory[MEM_LSDJMASTER_MIDI_CH] + 1, readGbSerialIn, 0x7F};
       MidiUSB.sendMIDI(event);
@@ -132,6 +139,9 @@ void sendMidiClockSlaveFromLSDJ()
 
 #ifdef USE_TEENSY
     usbMIDI.sendRealTime(0xF8);
+#endif
+#ifdef USE_RP2040
+    usbMidiSendRTMessage(0xF8);
 #endif
 #ifdef USE_LEONARDO
     midiEventPacket_t event = {0x0F, 0xF8};
