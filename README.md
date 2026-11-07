@@ -39,7 +39,9 @@ The RP2040 built-in USB port enumerates as a USB MIDI device named `Game Boy`. T
 * Put the 22 ohm resistors near the RP2040.
 
 ### Building the firmware
-In the Arduino IDE:
+Don't want to build it? Use the ready-made file in the `Firmware` folder and follow the `README.txt` next to it.
+
+To build it yourself in the Arduino IDE:
 1. In Boards Manager install "Raspberry Pi Pico/RP2040" by Earle F. Philhower, III, version 5.6.1. In Library Manager install "MIDI Library", version 5.0.2.
 2. One-time step: copy the two folders `Adafruit_TinyUSB_Library` and `Pico_PIO_USB` from `Arduinoboy/libraries` into your `Documents/Arduino/libraries` folder, and say yes to replace. Arduino does not look in the repo folder by itself. This swaps in our edited copies for all your projects, and our USB library turns off USB host support for keyboards, storage and serial. If you use those elsewhere, move your original folders somewhere outside `libraries` first.
 3. Open `Arduinoboy/Arduinoboy.ino`, the file inside the inner `Arduinoboy` folder.

@@ -3,7 +3,7 @@
 // This sketch needs the edited USB library that ships in Arduinoboy/libraries.
 // Arduino does not look in that folder by itself, so it has to be copied over once.
 #ifndef ARDUINOBOY_MODIFIED_TINYUSB
-#error "ONE-TIME SETUP NEEDED. Copy the two folders Adafruit_TinyUSB_Library and Pico_PIO_USB from Arduinoboy/libraries into Documents/Arduino/libraries, say yes to replace, then press Verify again. Details are in the README under Building the firmware."
+#error "ONE-TIME SETUP NEEDED. Copy the two folders Adafruit_TinyUSB_Library and Pico_PIO_USB from Arduinoboy/libraries into Documents/Arduino/libraries, say yes to replace, then press Verify again. This replaces your own copies of those libraries for all your projects, so back them up first. Details are in the README under Building the firmware."
 #endif
 
 /*
