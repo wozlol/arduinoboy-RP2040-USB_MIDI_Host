@@ -10,9 +10,9 @@ Press the button to cycle modes. There are 6 mode LEDs for 7 modes: modes 1-5 li
 
 | # | Mode | Game Boy sync setting |
 |---|------|------------------------|
-| 1 | LSDJ Slave Sync | `Slave` |
-| 2 | LSDJ Master Sync | `Master` |
-| 3 | LSDJ Keyboard | `Keyboard` |
+| 1 | LSDJ Slave Sync | `MIDI` |
+| 2 | LSDJ Master Sync | `LSDJ` |
+| 3 | LSDJ Keyboard | `KEYBD` |
 | 4 | Nanoloop Sync | `slave` (in Nanoloop) |
 | 5 | mGB | — (mGB cartridge) |
 | 6 | LSDJ MIDIMAP | `MI.MAP` |
