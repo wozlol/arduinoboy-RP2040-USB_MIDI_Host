@@ -14,7 +14,7 @@
 
 void modeLSDJMasterSyncSetup()
 {
-  digitalWrite(pinStatusLed,LOW);
+  ledRest(5);
   pinMode(pinGBClock,INPUT);
 
   #ifdef USE_TEENSY

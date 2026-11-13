@@ -13,7 +13,7 @@
 
 void modeLSDJMapSetup()
 {
-  digitalWrite(pinStatusLed,LOW);
+  ledRest(5);
   pinMode(pinGBClock,OUTPUT);
   digitalWrite(pinGBClock, HIGH);
  #ifdef USE_TEENSY

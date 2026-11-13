@@ -13,7 +13,7 @@
 
 void modeMidiGbSetup()
 {
-  digitalWrite(pinStatusLed,LOW);
+  ledRest(5);
   pinMode(pinGBClock,OUTPUT);
   digitalWrite(pinGBClock,HIGH);
 

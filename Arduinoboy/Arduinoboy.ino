@@ -614,6 +614,8 @@ void setup() {
   if(!wdRecoveringFromStall) {
     startupSequence();
     showSelectedMode(); //Light up the LED that shows which mode we are in.
+  } else {
+    setRestingLeds();   //Skipped the light show, but still show the mode
   }
 #else
   startupSequence();

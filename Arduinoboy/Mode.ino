@@ -112,9 +112,8 @@ void sequencerStop()
   countSyncTime = 0;          //Used to count a custom amount of clock ticks (2/4/8) for sync effects
   countSyncLightTime=0;
   switchLight=0;
-  digitalWrite(pinLeds[0],LOW);
-  digitalWrite(pinLeds[1],LOW);
-  digitalWrite(pinLeds[2],LOW);
-  digitalWrite(pinLeds[3],LOW);
-  digitalWrite(pinLeds[memory[MEM_MODE]],HIGH);
+  ledRest(0);
+  ledRest(1);
+  ledRest(2);
+  ledRest(3);
 }

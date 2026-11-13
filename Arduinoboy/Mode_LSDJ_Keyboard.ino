@@ -16,7 +16,7 @@ byte keyboardNoteKeyDown[128];   //For each note key code, the MIDI note holding
 void modeLSDJKeyboardSetup()
 {
   memset(keyboardNoteKeyDown, 0, sizeof(keyboardNoteKeyDown));
-  digitalWrite(pinStatusLed,LOW);
+  ledRest(5);
   pinMode(pinGBClock,OUTPUT);
   digitalWrite(pinGBClock,HIGH);
  #ifdef USE_TEENSY

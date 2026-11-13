@@ -1,5 +1,43 @@
 
  /*
+   The light(s) for the current mode stay on while nothing else is happening.
+   Mode 0 to 4 use one light each, mode 5 uses the status light plus lights 0 and 1,
+   mode 6 uses all six. When something wants to flash a light that is already on,
+   the flash is a short dip off, then it returns to on.
+ */
+bool ledRestsOn(uint8_t led)
+{
+  switch(memory[MEM_MODE]) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      return led == memory[MEM_MODE];
+    case 5:
+      return led == 0 || led == 1 || led == 5;
+    case 6:
+      return true;
+  }
+  return false;
+}
+
+void ledRest(uint8_t led)
+{
+  digitalWrite(pinLeds[led], ledRestsOn(led) ? HIGH : LOW);
+}
+
+void ledActive(uint8_t led)
+{
+  digitalWrite(pinLeds[led], ledRestsOn(led) ? LOW : HIGH);
+}
+
+void setRestingLeds()
+{
+  for(uint8_t led=0; led<6; led++) ledRest(led);
+}
+
+ /*
    showSelectedMode1 turns off the last mode led, turns on the new mode led
    and delays for a period of time to reduce jitter behavior from the mode
    changing too fast.
@@ -46,17 +84,18 @@ void showSelectedMode()
   }
   lastMode = memory[MEM_MODE];
   delay(300);
+  setRestingLeds(); //Leave the mode light(s) on
 }
 
 void updateVisualSync()
 {
     if(!countSyncTime) {
-      if(!blinkSwitch[5]) digitalWrite(pinStatusLed,HIGH);
-      digitalWrite(pinLeds[0],LOW);
-      digitalWrite(pinLeds[1],LOW);
-      digitalWrite(pinLeds[2],LOW);
-      digitalWrite(pinLeds[3],LOW);
-      digitalWrite(pinLeds[switchLight],HIGH);
+      if(!blinkSwitch[5]) ledActive(5);
+      ledRest(0);
+      ledRest(1);
+      ledRest(2);
+      ledRest(3);
+      ledActive(switchLight);
       blinkSwitch[5]=1;
       blinkSwitchTime[5]=0;
       countSyncLightTime = 0;
@@ -86,7 +125,7 @@ void updateBlinkLight(uint8_t light)
     if(blinkSwitchTime[light] == blinkMaxCount) {
       blinkSwitch[light]=0;
       blinkSwitchTime[light]=0;
-      digitalWrite(pinLeds[light],LOW);
+      ledRest(light);
     }
   }
 }
@@ -98,7 +137,7 @@ void updateStatusLight()
     if(blinkSwitchTime[5] == blinkMaxCount) {
       blinkSwitch[5]=0;
       blinkSwitchTime[5]=0;
-      digitalWrite(pinStatusLed,LOW);
+      ledRest(5);
     }
   }
 }
@@ -108,95 +147,95 @@ void blinkLight(byte midiMessage, byte midiValue)
   if(midiValue) {
   switch(midiMessage) {
     case 0x90:
-      if(!blinkSwitch[0]) digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0]) ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
       break;
     case 0x95:
-      if(!blinkSwitch[0]) digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0]) ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
       break;
     case 0x9A:
-      if(!blinkSwitch[0]) digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0]) ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
       break;
     case 0x91:
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
       break;
     case 0x96:
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
       break;
     case 0x9B:
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
       break;
     case 0x92:
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
     case 0x97:
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
     case 0x9C:
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
     case 0x93:
-      if(!blinkSwitch[3]) digitalWrite(pinLeds[3],HIGH);
+      if(!blinkSwitch[3]) ledActive(3);
       blinkSwitch[3]=1;
       blinkSwitchTime[3]=0;
       break;
     case 0x98:
-      if(!blinkSwitch[3]) digitalWrite(pinLeds[3],HIGH);
+      if(!blinkSwitch[3]) ledActive(3);
       blinkSwitch[3]=1;
       blinkSwitchTime[3]=0;
       break;
     case 0x9D:
-      if(!blinkSwitch[3]) digitalWrite(pinLeds[3],HIGH);
+      if(!blinkSwitch[3]) ledActive(3);
       blinkSwitch[3]=1;
       blinkSwitchTime[3]=0;
       break;
     case 0x94:
-      if(!blinkSwitch[0])  digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0])  ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
     case 0x99:
-      if(!blinkSwitch[0])  digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0])  ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
     case 0x9E:
-      if(!blinkSwitch[0])  digitalWrite(pinLeds[0],HIGH);
+      if(!blinkSwitch[0])  ledActive(0);
       blinkSwitch[0]=1;
       blinkSwitchTime[0]=0;
-      if(!blinkSwitch[1]) digitalWrite(pinLeds[1],HIGH);
+      if(!blinkSwitch[1]) ledActive(1);
       blinkSwitch[1]=1;
       blinkSwitchTime[1]=0;
-      if(!blinkSwitch[2]) digitalWrite(pinLeds[2],HIGH);
+      if(!blinkSwitch[2]) ledActive(2);
       blinkSwitch[2]=1;
       blinkSwitchTime[2]=0;
       break;
@@ -213,7 +252,7 @@ void blinkLight(byte midiMessage, byte midiValue)
     case 0xB2:
     case 0xB3:
     case 0xB4:
-      if(!blinkSwitch[5]) digitalWrite(pinStatusLed,HIGH);
+      if(!blinkSwitch[5]) ledActive(5);
       blinkSwitch[5]=1;
       blinkSwitchTime[5]=0;
       break;
@@ -250,15 +289,15 @@ void updateStatusLed()
     countStatusLedOn++;                //then increment the counter by 1
     if(countStatusLedOn > 3000) {      //if the counter is pretty high
       countStatusLedOn = 0;            //then reset it to zero.
-       digitalWrite(pinStatusLed,LOW); //and turn off the status led
+       ledRest(5);                     //and put the status led back to its resting state
        statusLedIsOn  = false;         //and set our "is it on?" to false, cause its off now. ;p
 
     } else if (statusLedBlink && countStatusLedOn == 1) {  //someone told me to blink, because i was already on
-       digitalWrite(pinStatusLed,LOW);                     //so I'll turn off and turn back on later..
+       ledRest(5);                                         //so I'll go back to rest and turn on again later..
 
     } else if (statusLedBlink && countStatusLedOn > 1000) {//Now that I've waited long enough I'll finish my blink.
        statusLedBlink = false;                             //Turn off the issued blink
-       digitalWrite(pinStatusLed,HIGH);                    //... and finally turn back on.
+       ledActive(5);                                       //... and finally flash again.
     }
   }
 }
@@ -275,7 +314,7 @@ void statusLedOn()
   }
   statusLedIsOn  = true;     //This is the flag the updator function looks for to know if its ok to increment the timer and wait to turn off the led
   countStatusLedOn = 0;      //Reset the timer
-  digitalWrite(pinStatusLed,HIGH); //Turn on the led
+  ledActive(5);              //Flash the led
 }
 
 /* cute startup sequence */
