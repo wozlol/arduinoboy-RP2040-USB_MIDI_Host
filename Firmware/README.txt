@@ -1,7 +1,7 @@
 Arduinoboy Host Edition, ready-to-flash firmware
 
 File: Arduinoboy-Host-Edition.uf2
-Status: TEST BUILD from the usb-modes-test branch. Built 2026-11-07 from source commit fe02503. Not yet tested on hardware.
+Status: TEST BUILD from the usb-modes-test branch. Built 2026-11-13 from source commit 02d5249. The mode light staying on and the mGB voice lights are tested on hardware. LSDJ modes are not yet tested.
 
 How to install
 1. Short the FIRMWARE pads on the board and plug in USB-C.
