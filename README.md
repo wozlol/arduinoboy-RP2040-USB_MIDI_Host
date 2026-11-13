@@ -82,13 +82,13 @@ _LSDJ Slave Mode Midi Note Effects:_
 
 Higher note values than these map LSDJ song position row offset on a Song Start.
 
-In LSDJ the `sync` mode should be set to `MIDI`
+In LSDJ the `sync` mode should be set to `MIDI` (`Slave` in older LSDJ versions)
  
 #### Mode 2 LSDJ as MIDI Master Sync. 
 
 Send Midi sync with LSDJ as a midi clock master, LSDJ also sends a Midi Note on message that corresponds to the song row number on play.
 
-In LSDJ the `sync` mode should be set to `LSDJ`
+In LSDJ the `sync` mode should be set to `LSDJ` (`Master` in older LSDJ versions)
 
 
 #### Mode 3 LSDJ PC Keyboard mode.
@@ -119,7 +119,7 @@ _PC Keyboard mode midi note map_
 * Midi Program Change messages will select from instrument table
 * Default Midi channel is 16. You can set this in the top of the main source file in the archive, or via the [Max Pat editor](#max).
 
-In LSDJ the `sync` mode should be set to `KEYBD`
+In LSDJ the `sync` mode should be set to `KEYBD` (`Keyboard` in older LSDJ versions)
 
 #### Mode 4 MIDI to Nanoloop sync
 Sync [Nanoloop.](http://www.nanoloop.com/) to external midi clock signals sent to the midi in.

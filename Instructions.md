@@ -6,17 +6,19 @@
 - Powered by the Game Boy's link port or by USB.
 
 ## Select a Mode
-Press the button to cycle modes. There are 6 mode LEDs for 7 modes: modes 1-5 light one LED each, mode 6 blinks two LEDs plus the status LED, and mode 7 lights all six together.
+Press the button to cycle modes. The lights on the case show the mode: SL, MS, KB, NL and MG are modes 1 to 5. Mode 6 blinks two lights plus the status light, and mode 7 lights all six.
 
-| # | Mode | Game Boy sync setting |
-|---|------|------------------------|
-| 1 | LSDJ Slave Sync | `MIDI` |
-| 2 | LSDJ Master Sync | `LSDJ` |
-| 3 | LSDJ Keyboard | `KEYBD` |
-| 4 | Nanoloop Sync | `slave` (in Nanoloop) |
-| 5 | mGB | — (mGB cartridge) |
-| 6 | LSDJ MIDIMAP | `MI.MAP` |
-| 7 | LSDJ MIDIOUT | `Midiout` |
+Set the `sync` setting on the LSDJ project screen to the word in the last column. Older LSDJ versions call `MIDI` `Slave`, `LSDJ` `Master`, and `KEYBD` `Keyboard`.
+
+| # | Light | Mode | LSDJ `sync` setting |
+|---|-------|------|---------------------|
+| 1 | SL | LSDJ Slave Sync | `MIDI` |
+| 2 | MS | LSDJ Master Sync | `LSDJ` |
+| 3 | KB | LSDJ Keyboard | `KEYBD` |
+| 4 | NL | Nanoloop Sync | `slave` (in Nanoloop) |
+| 5 | MG | mGB | none (mGB cartridge) |
+| 6 | two lights and status | LSDJ MIDIMAP | `MI.MAP` |
+| 7 | all lights | LSDJ MIDIOUT | `Midiout` |
 
 ## Mode 1 — LSDJ Slave Sync
 Arduinoboy drives LSDJ's transport and tempo from incoming MIDI.
