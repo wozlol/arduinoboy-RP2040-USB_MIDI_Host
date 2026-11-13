@@ -11,11 +11,75 @@
  *                                                                         *
  ***************************************************************************/
 
-byte keyboardNoteKeyDown[128];   //For each note key code, the MIDI note holding it down (0 = key is up)
+//LSDj's phrase editor remembers one held PS/2 note. Release it before
+//changing octave: otherwise the same scan code can refer to a different note.
+byte keyboardHeldMidiNote = 0xFF;
+byte keyboardHeldScanCode = 0;
+byte keyboardMidiStatus = 0;
+byte keyboardMidiNote = 0;
+bool keyboardMidiHasNote = false;
+
+void releaseLSDJKeyboardNote()
+{
+  if(keyboardHeldMidiNote == 0xFF) return;
+  sendKeyboardByteToGameboy(0xF0); //PS/2 set 2 break prefix
+  sendKeyboardByteToGameboy(keyboardHeldScanCode);
+  keyboardHeldMidiNote = 0xFF;
+}
+
+//Keep Note Off running status separate from Note On, and do not use note
+//number zero to mean "we haven't received a note yet". Real-time bytes may appear
+//between either data byte; system-common messages cancel running status.
+void handleLSDJKeyboardMidiByte(byte value)
+{
+  if(value >= 0xF8) return;
+  //If the byte is a Status Message
+  if(value & 0x80) {
+    /* Status message Information (# = midi channel 0 to F [1-16] )
+        0x8# = Note Off
+        0x9# = Note On
+        0xA# = AfterTouch (ie, key pressure)
+        0xB# = Control Change
+        0xC# = Program (patch) change
+        0xD# = Channel Pressure
+        0xE# = Pitch Wheel
+        0xF0 - 0xF7 = System Common Messages
+        0xF8 - 0xFF = System Realtime Messages
+    */
+    keyboardMidiStatus = value < 0xF0 ? value : 0;
+    keyboardMidiHasNote = false;
+    return;
+  }
+
+  //Weee hello world bitwise and. ... make the second hex digit zero so we can check the message type
+  // - the second digit is usually the midi channel 0 to F (1-16) unless its a 0xF0 message...
+  const byte type = keyboardMidiStatus & 0xF0;
+  //Set the number to a "note on" message so we can use the same "channel" variable as note on messages
+  const byte channel = 0x90 | (keyboardMidiStatus & 0x0F);
+  if(type == 0xC0) {
+    //Program change message
+    changeLSDJInstrument(channel, value);
+    if(channel == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
+  } else if(type == 0x80 || type == 0x90) {
+    //Note-On Status Message (Note: we have to treat this carefully because note status isnt sent on every note-on, damn it)
+    //There are 3 bytes total we need: Channel, Note, and velocity. Save the status and note until we have the velocity,
+    //at that point we can then call our note out function to LSDJ
+    //Note-Off messages use the same layout, but pass velocity zero to release the key.
+    if(!keyboardMidiHasNote) {
+      //If we dont have a note number, we assume this byte is the note number, get it...
+      keyboardMidiNote = value;
+      keyboardMidiHasNote = true;
+    } else {
+      //We have our note and channel, so call our note function...
+      playLSDJNote(channel, keyboardMidiNote, type == 0x80 ? 0 : value);
+      if(channel == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
+      keyboardMidiHasNote = false; //Set the note capture state to false, forcing to capture the next note
+    }
+  }
+}
 
 void modeLSDJKeyboardSetup()
 {
-  memset(keyboardNoteKeyDown, 0, sizeof(keyboardNoteKeyDown));
   ledRest(5);
   pinMode(pinGBClock,OUTPUT);
   digitalWrite(pinGBClock,HIGH);
@@ -25,6 +89,10 @@ void modeLSDJKeyboardSetup()
   blinkMaxCount=1000;
 
   /* The stuff below makes sure the code is in the same state as LSDJ on reset / restart, mode switched, etc. */
+
+  releaseLSDJKeyboardNote();
+  keyboardMidiStatus = 0;
+  keyboardMidiHasNote = false;
 
   for(int rst=0;rst<5;rst++) sendKeyboardByteToGameboy(keyboardOctDn);   //Return lsdj to the first octave
   for(int rst=0;rst<41;rst++) sendKeyboardByteToGameboy(keyboardInsDn);  //Return lsdj to the first instrument
@@ -54,71 +122,7 @@ void modeLSDJKeyboard()
     /***************************************************************************
      * Midi to LSDJ Keyboard Handling                                          *
      ***************************************************************************/
-    //If the byte is a Status Message
-    if(incomingMidiByte & 0x80) {
-      /* Status message Information (# = midi channel 0 to F [1-16] )
-          0x8# = Note Off
-          0x9# = Note On
-          0xA# = AfterTouch (ie, key pressure)
-          0xB# = Control Change
-          0xC# = Program (patch) change
-          0xD# = Channel Pressure
-          0xE# = Pitch Wheel
-          0xF0 - 0xF7 = System Common Messages
-          0xF8 - 0xFF = System Realtime Messages
-      */
-
-      //Weee hello world bitwise and. ... make the second hex digit zero so we can have a simple case statement
-      // - the second digit is usually the midi channel 0 to F (1-16) unless its a 0xF0 message...
-      switch (incomingMidiByte & 0xF0) {
-        case 0x80:
-          //Note-Off Status Message: handled like a note on with velocity 0, so playLSDJNote sends the key release
-          midiNoteOnMode = true;
-          midiNoteOffMode = true;
-          midiData[0] = incomingMidiByte + 0x10;   //Turn 0x8# into 0x9# so the channel check matches
-          midiData[1] = false;
-          break;
-        case 0x90:
-          //Note-On Status Message (Note: we have to treat this carefully because note status isnt sent on every note-on, damn it)
-          //There are 3 bytes total we need: Channel, Note, and velocity, these wil be assigned to a array until we have the velocity,
-          //at that point we can then call our note out function to LSDJ
-          midiNoteOnMode = true;                    //Set our stupid "Note on mode" on
-          midiNoteOffMode = false;
-          midiData[0] = incomingMidiByte;   //Assign the byte to the first position of a data array. (this is the midi channel)
-          midiData[1] = false;              //Force the second position to false (this will hold the note number)
-          break;
-        case 0xC0:
-          //Program change message
-          midiProgramChange = true;                   //Set our silly "Program Change mode" ... we need to get the next byte later
-          midiNoteOnMode = false;                     //Turn Note-on mode off
-          midiData[0] = incomingMidiByte - 48;//Set the number to a "note on" message so we can use the same "channel" variable as note on messages
-          break;
-        case 0xF0:
-           //Do nothing, these dont interfear with our note-on mode
-          break;
-        default:
-          //Turn Note-On mode off
-          midiNoteOnMode = false;
-          break;
-      }
-    } else if(midiNoteOnMode) {
-      //It wasnt a status bit, so lets assume it was a note message if the last status message was note-on.
-      if(!midiData[1]) {
-         //If we dont have a note number, we assume this byte is the note number, get it...
-         midiData[1] = incomingMidiByte;
-      } else {
-         //We have our note and channel, so call our note function...
-
-         playLSDJNote(midiData[0], midiData[1], midiNoteOffMode ? 0 : incomingMidiByte);
-         if(!midiNoteOffMode && midiData[0] == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
-         midiData[1] = false; //Set the note to false, forcing to capture the next note
-      }
-    } else if (midiProgramChange) {
-        changeLSDJInstrument(midiData[0], incomingMidiByte);
-        if(midiData[0] == (0x90 + memory[MEM_KEYBD_CH])) statusLedOn();
-        midiProgramChange = false;
-        midiData[0] = false;
-    }
+    handleLSDJKeyboardMidiByte(incomingMidiByte);
   }
 
   updateStatusLed();        // Update our status blinker
@@ -163,63 +167,33 @@ void changeLSDJInstrument(byte channel,byte message)
  */
 void playLSDJNote(byte channel,byte note, byte velocity)
 {
-  byte midiNote = note;
-  if(channel == (0x90+memory[MEM_KEYBD_CH]) && velocity == 0x00) {
-    releaseLSDJNote(note);  //Note off: send the PC keyboard key release so the same key can be pressed again
+  if(channel != (0x90+memory[MEM_KEYBD_CH])) return;
+  if(velocity == 0) {
+    //Late releases of older, overlapping notes must not release the new note
+    //or move LSDj back to the older note's octave.
+    if(note == keyboardHeldMidiNote) releaseLSDJKeyboardNote();
     return;
   }
-  if(channel == (0x90+memory[MEM_KEYBD_CH])
-     && velocity > 0x00) { //If midi channel = ours and the velocity is greater then 0
-    if(note >= keyboardNoteStart) {
-      keyboardNoteOffset = 0;
-      note = note - keyboardNoteStart;  //subtract the octave offset to get a value ranging from 0 to 48 for comparison
-
-      keyboardCurrentOct = note / 0x0C;  //get a octave value from 0 to 4 by deviding the current note by 12
-      changeLSDJOctave();
-
-      if(note >= 0x3C) keyboardNoteOffset = 0x0C; //if the note really high we need to use the second row of keyboard keys
-      note = (note % 12) + keyboardNoteOffset;    //get a 0 to 11 range of notes and add the offset
-      byte keyCode = keyboardNotes[note];
-      if(keyboardNoteKeyDown[keyCode]) {            // that key is still down (note on twice, or two notes an octave apart)
-        sendKeyboardByteToGameboy(0xF0);            // so lift it first, a real keyboard can't press a key that is already down
-        sendKeyboardByteToGameboy(keyCode);
-      }
-      sendKeyboardByteToGameboy(keyCode);           // and finally send the note
-      keyboardNoteKeyDown[keyCode] = midiNote;
-
-    } else if (note >= keyboardStartOctave) { //If we are at the octave below notes
-      keyboardDiff = note - keyboardStartOctave; //Get a value between 0 and 11
-      if(keyboardDiff < 8 && keyboardDiff > 3) sendKeyboardByteToGameboy(0xE0); //if we are sending cursor values we have to send a 0xE0 byte for "extended" pc keyboard mode
-      sendKeyboardByteToGameboy(keyboardCommands[note - keyboardStartOctave]); //send the byte corrisponding to the note number in the keyboard command array
-    }
-  }
-}
-
-
- /*
-  releaseLSDJNote sends the PC keyboard "key up" for a note: 0xF0 then the same key code that the
-  note-on sent (0xE0 first for the cursor keys). Without it LSDJ thinks the key is still held down
-  and ignores the same key pressed again. It only picks the key code, it never changes the octave.
- */
-void releaseLSDJNote(byte note)
-{
-  byte midiNote = note;
   if(note >= keyboardNoteStart) {
-    note = note - keyboardNoteStart;
+    //Also handle another Note On for the same pitch without an intervening
+    //Note Off. LSDj treats repeated make codes as one held keyboard key.
+    releaseLSDJKeyboardNote();
+    keyboardHeldMidiNote = note;
     keyboardNoteOffset = 0;
-    if(note >= 0x3C) keyboardNoteOffset = 0x0C;
-    note = (note % 12) + keyboardNoteOffset;
-    byte keyCode = keyboardNotes[note];
-    if(keyboardNoteKeyDown[keyCode] == midiNote) {  // only if this note is the one holding the key down
-      keyboardNoteKeyDown[keyCode] = 0;
-      sendKeyboardByteToGameboy(0xF0);
-      sendKeyboardByteToGameboy(keyCode);
-    }
-  } else if (note >= keyboardStartOctave) {
-    keyboardDiff = note - keyboardStartOctave;
-    if(keyboardDiff < 8 && keyboardDiff > 3) sendKeyboardByteToGameboy(0xE0);
-    sendKeyboardByteToGameboy(0xF0);
-    sendKeyboardByteToGameboy(keyboardCommands[keyboardDiff]);
+    note = note - keyboardNoteStart;  //subtract the octave offset to get a value ranging from 0 to 48 for comparison
+
+    keyboardCurrentOct = note / 0x0C;  //get a octave value from 0 to 4 by deviding the current note by 12
+    changeLSDJOctave();
+
+    if(note >= 0x3C) keyboardNoteOffset = 0x0C; //if the note really high we need to use the second row of keyboard keys
+    note = (note % 12) + keyboardNoteOffset;    //get a 0 to 11 range of notes and add the offset
+    keyboardHeldScanCode = keyboardNotes[note];
+    sendKeyboardByteToGameboy(keyboardHeldScanCode);       // and finally send the note
+
+  } else if (note >= keyboardStartOctave) { //If we are at the octave below notes
+    keyboardDiff = note - keyboardStartOctave; //Get a value between 0 and 11
+    if(keyboardDiff < 8 && keyboardDiff > 3) sendKeyboardByteToGameboy(0xE0); //if we are sending cursor values we have to send a 0xE0 byte for "extended" pc keyboard mode
+    sendKeyboardByteToGameboy(keyboardCommands[note - keyboardStartOctave]); //send the byte corrisponding to the note number in the keyboard command array
   }
 }
 
