@@ -3,8 +3,8 @@
 ## Update the firmware
 The latest ready-to-flash firmware is in the [Firmware](Firmware) folder. You do not need to compile anything.
 1. Download [Arduinoboy-Host-Edition.uf2](Firmware/Arduinoboy-Host-Edition.uf2) (on GitHub, open the file and click the download button).
-2. Short the FIRMWARE pads on the board and plug in USB-C to your computer.
-3. A drive appears on your computer, usually named `RPI-RP2`. Drag the `.uf2` file onto it.
+2. Short the FIRMWARE pads on the board and plug in USB-C to your computer. (you can unshort the pads a second after you plug it in)
+3. A drive appears on your computer named `RPI-RP2`. Drag the `.uf2` file onto it.
 4. The board restarts by itself and the lights run in order. The update is done.
 
 The [Firmware README](Firmware/README.txt) says which source commit the file was built from and what has been tested.
