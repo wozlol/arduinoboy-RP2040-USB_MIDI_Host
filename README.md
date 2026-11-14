@@ -1,5 +1,14 @@
 # Arduinoboy RP2040 HOST EDITION by woz.lol
 
+## Update the firmware
+The latest ready-to-flash firmware is in the [Firmware](Firmware) folder. You do not need to compile anything.
+1. Download [Arduinoboy-Host-Edition.uf2](Firmware/Arduinoboy-Host-Edition.uf2) (on GitHub, open the file and click the download button).
+2. Short the FIRMWARE pads on the board and plug in USB-C to your computer.
+3. A drive appears on your computer, usually named `RPI-RP2`. Drag the `.uf2` file onto it.
+4. The board restarts by itself and the lights run in order. The update is done.
+
+The [Firmware README](Firmware/README.txt) says which source commit the file was built from and what has been tested.
+
 Based on the ArduinoBoy Repository for serial MIDI communication to the Nintendo Gameboy.
 
 ![ScreenShot](ArduinoBoy_USB_HOST_and_Power_MIDI_Keyboard_from_Gameboy_woz.lol.jpeg)
