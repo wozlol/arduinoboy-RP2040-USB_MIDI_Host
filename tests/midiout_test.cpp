@@ -11,8 +11,8 @@ using boolean = bool;
 enum { LOW, HIGH, INPUT_PULLUP, OUTPUT, pinGBClock, pinGBSerialIn, pinButtonMode, pinStatusLed, WD_PHASE_MODE_LOOP };
 enum { MEM_FORCE_MODE, MEM_MIDIOUT_NOTE_CH, MEM_MIDIOUT_CC_CH = 5, MEM_MIDIOUT_CC_MODE = 9,
        MEM_MIDIOUT_CC_SCALING = 13, MEM_MIDIOUT_CC_NUMBERS = 17, MEM_LSDJSLAVE_MIDI_CH = 45 };
-byte memory[65], incomingMidiByte, midiData[3], lastMidiData[2], midioutNoteHold[4][4];
-int countGbClockTicks, countClockPause, midioutBitDelay, blinkMaxCount, midioutNoteHoldCounter[4];
+byte memory[65], incomingMidiByte, midiData[3], lastMidiData[2], midioutNoteHold[4][4], midioutNoteHoldCounter[4];
+int countGbClockTicks, countClockPause, midioutBitDelay, blinkMaxCount;
 int midiOutLastNote[4] = {-1, -1, -1, -1};
 bool midiValueMode;
 bool sequencerStarted, midiSyncEffectsTime, midiNoteOnMode, usbMode;
@@ -21,13 +21,14 @@ unsigned long midioutNoteTimer[4], midioutNoteTimerThreshold = 10;
 
 unsigned long now, deadline;
 std::vector<std::pair<unsigned long, unsigned long>> presses;
-std::vector<byte> din, usb, fromGameBoy;
+std::vector<byte> din, usb, fromGameBoy, afterResume;
 std::vector<unsigned long> statusChanges;
 int statusLevel = HIGH;
 bool blinkSwitch[6];
 byte linkIdleValue = 0xff;
 int clockMode, fallingEdges, usbPolls, clockLevel = HIGH;
-unsigned long firstEdge;
+int pollStarts, edgesAtStart;
+unsigned long firstEdge, lastEdge, ledRestAt[6];
 struct Timeout {};
 struct ModeChanged {};
 
@@ -36,12 +37,19 @@ void wdFeed(int) { if (++now >= deadline) throw Timeout{}; }
 int clockLatch;
 void updateClockLevel() {
   int next = clockMode == OUTPUT ? clockLatch : HIGH;
-  if (clockLevel == HIGH && next == LOW && fallingEdges++ == 0) firstEdge = now;
+  if (clockLevel == HIGH && next == LOW) {
+    if (fallingEdges++ == 0) firstEdge = now;
+    lastEdge = now;
+  }
   clockLevel = next;
 }
 void gpio_put(int pin, int value) { assert(pin == pinGBClock); clockLatch = value; }
 void pinMode(int pin, int mode) {
   assert(pin == pinGBClock);
+  if (mode == OUTPUT) {
+    ++pollStarts;
+    edgesAtStart = fallingEdges;
+  }
   if (mode == INPUT_PULLUP) clockLatch = LOW;
   clockMode = mode;
   updateClockLevel();
@@ -68,13 +76,17 @@ int digitalRead(int pin) {
     return HIGH;
   }
   assert(pin == pinGBSerialIn && fallingEdges > 0);
-  unsigned bit = fallingEdges - 1;
-  byte value = bit / 8 < fromGameBoy.size() ? fromGameBoy[bit / 8] : linkIdleValue;
+  unsigned bit = fallingEdges - edgesAtStart - 1;
+  const auto &bytes = pollStarts == 1 ? fromGameBoy : afterResume;
+  byte value = bit / 8 < bytes.size() ? bytes[bit / 8] : linkIdleValue;
   return (value >> (7 - bit % 8)) & 1;
 }
 void setMode(byte mode) { assert(mode == 0); throw ModeChanged{}; }
 void setMode() { if (!memory[MEM_FORCE_MODE] && digitalRead(pinButtonMode) == LOW) setMode(0); }
-void ledRest(byte) {}
+void ledRest(byte led) {
+  ledRestAt[led] = now;
+  if (led == 5) digitalWrite(pinStatusLed, HIGH);
+}
 void updateBlinkLights() {}
 void updateStatusLight() {}
 void updateVisualSync() {}
@@ -103,7 +115,6 @@ struct MidiPort {
 } midi;
 MidiPort *serial = &midi;
 
-void modeLSDJMidiout();
 bool getIncommingSlaveByte();
 void midioutDoAction(byte, byte);
 void checkStopNote(byte);
@@ -120,13 +131,18 @@ void getSlaveSyncEffect(byte);
 #include "../Arduinoboy/Mode_LSDJ_SlaveSync.ino"
 
 bool run(unsigned long until) {
-  now = firstEdge = 0;
-  fallingEdges = usbPolls = 0;
+  now = firstEdge = lastEdge = 0;
+  fallingEdges = usbPolls = pollStarts = 0;
   deadline = until;
   din.clear();
   usb.clear();
   statusLevel = HIGH;
   statusChanges.clear();
+  for (int channel = 0; channel < 4; ++channel) {
+    midiOutLastNote[channel] = -1;
+    midioutNoteHoldCounter[channel] = 0;
+    midioutNoteTimer[channel] = 0;
+  }
   try { modeLSDJMidioutSetup(); }
   catch (ModeChanged &) { return true; }
   catch (Timeout &) { return false; }
@@ -172,14 +188,42 @@ int main() {
   assert(!blinkSwitch[5]);
 
   //Keep blinking and polling during the original hold. Release bounce must
-  //not leave mode 7. A fresh press exits even on a continuously busy link.
+  //not leave mode 7. A tap exits on release even on a continuously busy link.
   memory[MEM_FORCE_MODE] = 0;
   fromGameBoy.clear();
   linkIdleValue = 0xff; //A continuous stream of clock messages.
-  presses = {{100,3700}, {3708,3712}, {4350,6000}};
+  presses = {{100,3700}, {3708,3712}, {4350,4450}};
   assert(run(4500));
-  assert(now == 4370 && fallingEdges > 0);
+  assert(now == 4470 && fallingEdges > 0 && clockMode == INPUT_PULLUP);
   checkSlowBlink(100);
+
+  //A second hold releases the clock and a sounding note exactly at one second.
+  //Keeping it down for several seconds must leave polling off and all LEDs on.
+  fromGameBoy = {0xf0, 0xbc, 0xf2}; //PU1 note 60, then a command missing its value.
+  linkIdleValue = 0;
+  presses = {{100,1450}, {2300,6000}, {6500,7600}, {7800,7900}};
+  assert(!run(6200));
+  assert(pollStarts == 1 && firstEdge == 1101 && lastEdge == 3299 && clockMode == INPUT_PULLUP);
+  assert((statusChanges == std::vector<unsigned long>{1100, 2100, 3100, 3300}));
+  assert(statusLevel == HIGH);
+  for (auto restored : ledRestAt) assert(restored == 3300);
+  assert((din == std::vector<byte>{0x90,60,127, 0x80,60,0}) && usb == din);
+  assert(midiOutLastNote[0] == -1 && midioutNoteHoldCounter[0] == 0);
+
+  //Resume between a channel command and its value. Releasing PU1 during the
+  //pause must preserve the pending WAV channel for the next note.
+  memory[MEM_MIDIOUT_NOTE_CH + 2] = 2;
+  afterResume = {0xc3}; //Value 67 for the pending WAV command.
+  memory[MEM_FORCE_MODE] = 1;
+  assert(!run(8100));
+  assert(pollStarts == 2 && clockMode == OUTPUT && lastEdge == 8099);
+  assert(statusChanges.back() == 7500 && statusLevel == LOW);
+  assert((din == std::vector<byte>{0x90,60,127, 0x80,60,0, 0x92,67,127}) && usb == din);
+  //A short tap in active mode releases that note and exits when unlocked.
+  memory[MEM_FORCE_MODE] = 0;
+  assert(run(8100));
+  assert(now == 7920 && lastEdge == 7919 && clockMode == INPUT_PULLUP);
+  assert((din == std::vector<byte>{0x90,60,127, 0x80,60,0, 0x92,67,127, 0x82,67,0}) && usb == din);
 
   //Clock received in mode 7 is discarded. Mode 1 waits for a fresh start;
   //each playing MIDI tick then produces exactly eight falling edges.
@@ -192,5 +236,5 @@ int main() {
   try { modeLSDJSlaveSyncSetup(); } catch (Timeout &) {}
   assert(firstEdge == 910 && fallingEdges == 16 && clockMode == INPUT_PULLUP);
   assert(nextEvent == usbEvents.size() && !sequencerStarted);
-  std::puts("PASS: silent mode 7, forced mode, MIDIOUT messages, slow status blink, busy exit and mode 1 clock");
+  std::puts("PASS: mode 7 polling toggle, held-note release, slow status blink, forced mode, busy exit and mode 1 clock");
 }

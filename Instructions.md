@@ -79,7 +79,7 @@ Each of the 4 Game Boy channels sends MIDI on its own channel, controlled by LSD
 | `Xxx` | CC (high nibble = CC#, low nibble = value 0-F → 0-127) |
 | `Yxx` | Program change |
 
-Select `SYNC=MI.OUT` in the Arduinoboy build of LSDJ. With all six lights steady, hold the mode button for one second. MIDIOUT starts and the red status light begins blinking while the button is still down. Release it to keep playing in mode 7. A fresh press advances to mode 1.
+Select `SYNC=MI.OUT` in the Arduinoboy build of LSDJ. Then hold the mode button for one second to start MIDIOUT. The red status LED will start blinking. To stop polling, hold it again for one second.
 
 ## Editing Settings
 Change MIDI channels, boot mode, and other global settings without reflashing:

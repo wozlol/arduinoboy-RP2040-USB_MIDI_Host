@@ -27,61 +27,41 @@ void serviceMidioutInputs()
 
 //Start pressed so the button used to enter mode 7 must be released first.
 struct MidioutButton {
+  enum Event { None, Tap, Hold };
   bool pressed = true;
   bool rawPressed = true;
+  bool timingHold = false;
   unsigned long rawSince = millis();
+  unsigned long pressedAt = 0;
 
-  bool changed(unsigned long now) {
+  Event read(unsigned long now) {
     bool down = digitalRead(pinButtonMode) == LOW;
     if(down != rawPressed) {
       rawPressed = down;
       rawSince = now;
     }
-    if(pressed == rawPressed || now - rawSince < 20) return false;
-    pressed = rawPressed;
-    return true;
-  }
-};
-
-bool waitForMidioutHold()
-{
-  MidioutButton button;
-  bool timingHold = false;
-  unsigned long pressedAt = 0;
-  for(;;) {
-    serviceMidioutInputs();
-    unsigned long now = millis();
-    if(button.changed(now)) {
-      if(button.pressed) {
-        pressedAt = button.rawSince;
+    if(pressed != rawPressed && now - rawSince >= 20) {
+      pressed = rawPressed;
+      if(pressed) {
+        pressedAt = rawSince;
         timingHold = true;
       } else if(timingHold) {
-        if(!memory[MEM_FORCE_MODE]) return false;
         timingHold = false;
+        return Tap;
       }
     }
     //Time a release from its first edge, so debounce can't turn a short tap into a hold.
-    unsigned long heldUntil = button.rawPressed ? now : button.rawSince;
-    if(timingHold && heldUntil - pressedAt >= 1000) return true;
+    unsigned long heldUntil = rawPressed ? now : rawSince;
+    if(timingHold && heldUntil - pressedAt >= 1000) {
+      timingHold = false;
+      return Hold;
+    }
+    return None;
   }
-}
+};
 
-void modeLSDJMidioutSetup()
+void startMidioutPolling()
 {
-  ledRest(5);
-  pinMode(pinGBClock,INPUT_PULLUP);
-
- #ifdef USE_TEENSY
-  usbMIDI.setHandleRealTimeSystem(NULL);
- #endif
-
-  //The MIDIOUT poll itself clocks the Game Boy. Wait here while passing through
-  //mode 7 so a cartridge playing in regular LSDJ sync never sees those pulses.
-  if(!waitForMidioutHold()) {
-    setMode(0);
-    return;
-  }
-
   //Preload the idle level before enabling the clock output.
 #ifdef USE_RP2040
   gpio_put(pinGBClock,HIGH); //digitalWrite(HIGH) on INPUT_PULLUP only releases the pin on Arduino-Pico
@@ -93,29 +73,63 @@ void modeLSDJMidioutSetup()
   countGbClockTicks=0;
   lastMidiData[0] = -1;
   lastMidiData[1] = -1;
-  midiValueMode = false;
   blinkMaxCount=60;
-  modeLSDJMidiout();
+  blinkSwitch[5] = false;
+  digitalWrite(pinStatusLed,LOW);
 }
 
-void modeLSDJMidiout()
+void stopMidioutPolling()
 {
+  pinMode(pinGBClock,INPUT_PULLUP);
+  //A note's release may still be waiting on the Game Boy.
+  for(byte channel=0;channel<4;channel++) {
+    if(midiOutLastNote[channel]>=0) stopNote(channel);
+  }
+  for(byte led=0;led<6;led++) {
+    blinkSwitch[led] = false;
+    ledRest(led);
+  }
+}
+
+void modeLSDJMidioutSetup()
+{
+#ifdef USE_TEENSY
+  usbMIDI.setHandleRealTimeSystem(NULL);
+#endif
 #ifdef USE_LEONARDO
   midiEventPacket_t packet;
 #endif
-  //Give the red LED a slow blink as soon as MIDIOUT is enabled.
-  blinkSwitch[5] = false;
+  //Polling clocks the Game Boy. Leave the link idle until the first hold.
+  pinMode(pinGBClock,INPUT_PULLUP);
+  ledRest(5);
+  bool polling = false;
   bool statusLedLit = false;
-  digitalWrite(pinStatusLed,LOW);
-  unsigned long lastStatusChange = millis();
+  //A hold can pause the link between a command and its value.
+  int pendingCommand = -1;
+  midiValueMode = false;
+  unsigned long lastStatusChange = 0;
   MidioutButton button;
   while(1){
      serviceMidioutInputs();
      unsigned long now = millis();
-     if(button.changed(now) && button.pressed && !memory[MEM_FORCE_MODE]) {
+     MidioutButton::Event event = button.read(now);
+     if(event == MidioutButton::Tap && !memory[MEM_FORCE_MODE]) {
+       if(polling) stopMidioutPolling();
        setMode(0);
        return;
      }
+     if(event == MidioutButton::Hold) {
+       polling = !polling;
+       if(polling) {
+         startMidioutPolling();
+         statusLedLit = false;
+         lastStatusChange = now;
+       } else {
+         stopMidioutPolling();
+       }
+       continue;
+     }
+     if(!polling) continue;
      if(now - lastStatusChange >= 1000) {
        statusLedLit = !statusLedLit;
        digitalWrite(pinStatusLed,statusLedLit ? HIGH : LOW);
@@ -169,13 +183,12 @@ void modeLSDJMidiout()
 #endif
              break;
            default:
-             midiData[0] = (incomingMidiByte - 0x70);
-             midiValueMode = true;
+             pendingCommand = incomingMidiByte - 0x70;
              break;
           }
-        } else if (midiValueMode == true) {
-          midiValueMode = false;
-          midioutDoAction(midiData[0],incomingMidiByte);
+        } else if (pendingCommand >= 0) {
+          midioutDoAction(pendingCommand,incomingMidiByte);
+          pendingCommand = -1;
         }
 
       } else {
@@ -207,7 +220,8 @@ void midioutDoAction(byte m, byte v)
 
 void checkStopNote(byte m)
 {
-  if((midioutNoteTimer[m]+midioutNoteTimerThreshold) < millis()) {
+  if(midioutNoteHoldCounter[m] >= sizeof(midioutNoteHold[m]) ||
+     millis() - midioutNoteTimer[m] > (unsigned long)midioutNoteTimerThreshold) {
     stopNote(m);
   }
 }
