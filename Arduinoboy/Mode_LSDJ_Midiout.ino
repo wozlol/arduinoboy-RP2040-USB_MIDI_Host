@@ -11,16 +11,85 @@
  *                                                                         *
  ***************************************************************************/
 
+void serviceMidioutInputs()
+{
+#ifdef USE_RP2040
+  wdFeed(WD_PHASE_MODE_LOOP);
+  //Reading also handles programmer SysEx. Incoming MIDI isn't used in this mode.
+  UsbMidiMessage unused;
+  usbMidiReadMessage(&unused);
+#endif
+#ifdef USE_TEENSY
+  while(usbMIDI.read()) ;
+#endif
+  if(serial->available()) checkForProgrammerSysex(serial->read());
+}
+
+//Start pressed so the button used to enter mode 7 must be released first.
+struct MidioutButton {
+  bool pressed = true;
+  bool rawPressed = true;
+  unsigned long rawSince = millis();
+
+  bool changed(unsigned long now) {
+    bool down = digitalRead(pinButtonMode) == LOW;
+    if(down != rawPressed) {
+      rawPressed = down;
+      rawSince = now;
+    }
+    if(pressed == rawPressed || now - rawSince < 20) return false;
+    pressed = rawPressed;
+    return true;
+  }
+};
+
+bool waitForMidioutHold()
+{
+  MidioutButton button;
+  bool timingHold = false;
+  unsigned long pressedAt = 0;
+  for(;;) {
+    serviceMidioutInputs();
+    unsigned long now = millis();
+    if(button.changed(now)) {
+      if(button.pressed) {
+        pressedAt = button.rawSince;
+        timingHold = true;
+      } else if(timingHold) {
+        if(!memory[MEM_FORCE_MODE]) return false;
+        timingHold = false;
+      }
+    }
+    //Time a release from its first edge, so debounce can't turn a short tap into a hold.
+    unsigned long heldUntil = button.rawPressed ? now : button.rawSince;
+    if(timingHold && heldUntil - pressedAt >= 1000) return true;
+  }
+}
+
 void modeLSDJMidioutSetup()
 {
   ledRest(5);
-  pinMode(pinGBClock,OUTPUT);
-  digitalWrite(pinGBClock,HIGH);
+  pinMode(pinGBClock,INPUT_PULLUP);
 
  #ifdef USE_TEENSY
   usbMIDI.setHandleRealTimeSystem(NULL);
  #endif
 
+  //The MIDIOUT poll itself clocks the Game Boy. Wait here while passing through
+  //mode 7 so a cartridge playing in regular LSDJ sync never sees those pulses.
+  if(!waitForMidioutHold()) {
+    setMode(0);
+    return;
+  }
+
+  //Preload the idle level before enabling the clock output.
+#ifdef USE_RP2040
+  gpio_put(pinGBClock,HIGH); //digitalWrite(HIGH) on INPUT_PULLUP only releases the pin on Arduino-Pico
+#else
+  digitalWrite(pinGBClock,HIGH);
+#endif
+  pinMode(pinGBClock,OUTPUT);
+  digitalWrite(pinGBClock,HIGH);
   countGbClockTicks=0;
   lastMidiData[0] = -1;
   lastMidiData[1] = -1;
@@ -34,14 +103,24 @@ void modeLSDJMidiout()
 #ifdef USE_LEONARDO
   midiEventPacket_t packet;
 #endif
+  //Give the red LED a slow blink as soon as MIDIOUT is enabled.
+  blinkSwitch[5] = false;
+  bool statusLedLit = false;
+  digitalWrite(pinStatusLed,LOW);
+  unsigned long lastStatusChange = millis();
+  MidioutButton button;
   while(1){
-     #ifdef USE_RP2040
-     wdFeed(WD_PHASE_MODE_LOOP);
-     // This mode has no USB-device polling on RP2040 at all, so without this, incoming
-     // USB-device sysex - including a web/Max programmer's request to enter Programmer
-     // Mode - is never read while sitting in this mode.
-     usbMidiUpdate();
-     #endif
+     serviceMidioutInputs();
+     unsigned long now = millis();
+     if(button.changed(now) && button.pressed && !memory[MEM_FORCE_MODE]) {
+       setMode(0);
+       return;
+     }
+     if(now - lastStatusChange >= 1000) {
+       statusLedLit = !statusLedLit;
+       digitalWrite(pinStatusLed,statusLedLit ? HIGH : LOW);
+       lastStatusChange = now;
+     }
      if(getIncommingSlaveByte()) {
         if(incomingMidiByte > 0x6f) {
           switch(incomingMidiByte)
@@ -100,17 +179,7 @@ void modeLSDJMidiout()
         }
 
       } else {
-        setMode();                // Check if mode button was depressed
         updateBlinkLights();
-#ifdef USE_TEENSY
-        while(usbMIDI.read()) ;
-#endif
-#ifdef USE_LEONARDO
-        // while (MidiUSB.read()) ;
-#endif
-        if (serial->available()) {                  //If serial data was send to midi inp
-          checkForProgrammerSysex(serial->read());
-        }
       }
    }
 }

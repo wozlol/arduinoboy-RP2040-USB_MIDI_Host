@@ -14,8 +14,8 @@
 void modeLSDJSlaveSyncSetup()
 {
   ledRest(5);
-  pinMode(pinGBClock,OUTPUT);
-  digitalWrite(pinGBClock,HIGH);
+  pinMode(pinGBClock,INPUT_PULLUP);
+  sequencerStarted = false;
 
 #ifdef USE_TEENSY
   usbMIDI.setHandleRealTimeSystem(usbMidiLSDJSlaveRealtimeMessage);
@@ -90,10 +90,13 @@ void modeLSDJSlaveSync()
 */
 void sendClockTickToLSDJ()
 {
+  //Leave the link clock free between ticks, including when entering this mode.
+  pinMode(pinGBClock,OUTPUT);
   for(countLSDJTicks=0;countLSDJTicks<8;countLSDJTicks++) {
     GB_SET(0,0,0);
     GB_SET(1,0,0);
   }
+  pinMode(pinGBClock,INPUT_PULLUP);
 }
 
 
