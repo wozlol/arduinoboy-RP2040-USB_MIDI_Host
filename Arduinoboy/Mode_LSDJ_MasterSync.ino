@@ -15,13 +15,16 @@
 void modeLSDJMasterSyncSetup()
 {
   ledRest(5);
-  pinMode(pinGBClock,INPUT);
+  pinMode(pinGBClock,INPUT_PULLUP); //The Game Boy clock idles high, even with the cable unplugged
 
   #ifdef USE_TEENSY
   usbMIDI.setHandleRealTimeSystem(NULL);
   #endif
 
-  countSyncTime=0;
+  sequencerStop();
+  countClockPause=0;
+  countGbClockTicks=0;
+  readGbSerialIn=0;
   blinkMaxCount=1000;
   modeLSDJMasterSync();
 }
@@ -47,11 +50,13 @@ void modeLSDJMasterSync()
     }
     readgbClockLine = digitalRead(pinGBClock);    //Read gameboy's clock line
     if(readgbClockLine) {                         //If Gb's Clock is On
-      while(readgbClockLine) {                    //Loop untill its off
+      do {                                        //Loop untill its off
         readgbClockLine = digitalRead(pinGBClock);//Read the clock again
         bit = digitalRead(pinGBSerialIn);         //Read the serial input for song position
-        checkActions();
-      }
+        setMode();
+        updateStatusLight();
+      } while(readgbClockLine && !checkLSDJStopped());
+      if(readgbClockLine) continue;               //Still idle; poll MIDI again without counting a clock edge
 
       countClockPause= 0;                          //Reset our wait timer for detecting a sequencer stop
 
@@ -65,13 +70,6 @@ void modeLSDJMasterSync()
   }
 }
 
-void checkActions()
-{
-  checkLSDJStopped();                        //Check if LSDJ hit Stop
-  setMode();
-  updateStatusLight();
-}
-
  /*
   checkLSDJStopped counts how long the clock was on, if its been on too long we assume
   LSDJ has stopped- Send a MIDI transport stop message and return true.
@@ -80,9 +78,10 @@ boolean checkLSDJStopped()
 {
   countClockPause++;                            //Increment the counter
   if(countClockPause > 16000) {                 //if we've reached our waiting period
+    countClockPause = 0;                        //reset our clock
+    countGbClockTicks = 0;                      //Drop any unfinished link byte
+    readGbSerialIn = 0;
     if(sequencerStarted) {
-      readgbClockLine=false;
-      countClockPause = 0;                      //reset our clock
       serial->write(0xFC);                      //send the transport stop message
 #ifdef USE_TEENSY
       usbMIDI.sendRealTime(0xFC);
@@ -110,7 +109,7 @@ boolean checkLSDJStopped()
  */
 void sendMidiClockSlaveFromLSDJ()
 {
-  if(!countGbClockTicks) {      //If we hit 8 bits
+  if(++countGbClockTicks == 8) { //If we hit 8 bits
     if(!sequencerStarted) {         //If the sequencer hasnt started
       serial->write((0x90+memory[MEM_LSDJMASTER_MIDI_CH])); //Send the midi channel byte
       serial->write(readGbSerialIn);                //Send the row value as a note
@@ -153,6 +152,4 @@ void sendMidiClockSlaveFromLSDJ()
 
     updateVisualSync();
   }
-  countGbClockTicks++;              //Increment the bit counter
- if(countGbClockTicks==8) countGbClockTicks=0;
 }
