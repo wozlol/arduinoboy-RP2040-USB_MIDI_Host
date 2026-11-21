@@ -18,7 +18,7 @@ Set the `sync` setting on the LSDJ project screen to the word in the last column
 | 4 | NL | Nanoloop Sync | `slave` (in Nanoloop) |
 | 5 | MG | mGB | none (mGB cartridge) |
 | 6 | two lights and status | LSDJ MIDIMAP | `MI.MAP` |
-| 7 | all lights | LSDJ MIDIOUT | `Midiout` |
+| 7 | all lights | LSDJ MIDIOUT | `MI.OUT` |
 
 ## Mode 1 — LSDJ Slave Sync
 Arduinoboy drives LSDJ's transport and tempo from incoming MIDI.
@@ -79,7 +79,7 @@ Each of the 4 Game Boy channels sends MIDI on its own channel, controlled by LSD
 | `Xxx` | CC (high nibble = CC#, low nibble = value 0-F → 0-127) |
 | `Yxx` | Program change |
 
-Requires the Midiout build of LSDJ.
+Select `SYNC=MI.OUT` in the Arduinoboy build of LSDJ. Then hold the mode button for one second to start MIDIOUT. The red status LED will start blinking. To stop polling, hold it again for one second.
 
 ## Editing Settings
 Change MIDI channels, boot mode, and other global settings without reflashing:

@@ -545,7 +545,7 @@ void setup() {
   pinMode(pinStatusLed,OUTPUT);
   pinMode(pinButtonMode,INPUT_PULLUP);
 
-  pinMode(pinGBClock,OUTPUT);
+  pinMode(pinGBClock,INPUT_PULLUP); //Let the Game Boy drive clock until the selected mode takes over
   pinMode(pinGBSerialIn,INPUT);
   pinMode(pinGBSerialOut,OUTPUT);
 
@@ -572,7 +572,6 @@ void setup() {
 /*
   Set Pin States
 */
-  digitalWrite(pinGBClock,HIGH);    // gameboy wants a HIGH line
   digitalWrite(pinGBSerialOut,LOW);    // no data to send
 /*
   Misc Startup

@@ -11,37 +11,130 @@
  *                                                                         *
  ***************************************************************************/
 
-void modeLSDJMidioutSetup()
+void serviceMidioutInputs()
 {
-  ledRest(5);
+#ifdef USE_RP2040
+  wdFeed(WD_PHASE_MODE_LOOP);
+  //Reading also handles programmer SysEx. Incoming MIDI isn't used in this mode.
+  UsbMidiMessage unused;
+  usbMidiReadMessage(&unused);
+#endif
+#ifdef USE_TEENSY
+  while(usbMIDI.read()) ;
+#endif
+  if(serial->available()) checkForProgrammerSysex(serial->read());
+}
+
+//Start pressed so the button used to enter mode 7 must be released first.
+struct MidioutButton {
+  enum Event { None, Tap, Hold };
+  bool pressed = true;
+  bool rawPressed = true;
+  bool timingHold = false;
+  unsigned long rawSince = millis();
+  unsigned long pressedAt = 0;
+
+  Event read(unsigned long now) {
+    bool down = digitalRead(pinButtonMode) == LOW;
+    if(down != rawPressed) {
+      rawPressed = down;
+      rawSince = now;
+    }
+    if(pressed != rawPressed && now - rawSince >= 20) {
+      pressed = rawPressed;
+      if(pressed) {
+        pressedAt = rawSince;
+        timingHold = true;
+      } else if(timingHold) {
+        timingHold = false;
+        return Tap;
+      }
+    }
+    //Time a release from its first edge, so debounce can't turn a short tap into a hold.
+    unsigned long heldUntil = rawPressed ? now : rawSince;
+    if(timingHold && heldUntil - pressedAt >= 1000) {
+      timingHold = false;
+      return Hold;
+    }
+    return None;
+  }
+};
+
+void startMidioutPolling()
+{
+  //Preload the idle level before enabling the clock output.
+#ifdef USE_RP2040
+  gpio_put(pinGBClock,HIGH); //digitalWrite(HIGH) on INPUT_PULLUP only releases the pin on Arduino-Pico
+#else
+  digitalWrite(pinGBClock,HIGH);
+#endif
   pinMode(pinGBClock,OUTPUT);
   digitalWrite(pinGBClock,HIGH);
-
- #ifdef USE_TEENSY
-  usbMIDI.setHandleRealTimeSystem(NULL);
- #endif
-
   countGbClockTicks=0;
   lastMidiData[0] = -1;
   lastMidiData[1] = -1;
-  midiValueMode = false;
   blinkMaxCount=60;
-  modeLSDJMidiout();
+  blinkSwitch[5] = false;
+  digitalWrite(pinStatusLed,LOW);
 }
 
-void modeLSDJMidiout()
+void stopMidioutPolling()
 {
+  pinMode(pinGBClock,INPUT_PULLUP);
+  //A note's release may still be waiting on the Game Boy.
+  for(byte channel=0;channel<4;channel++) {
+    if(midiOutLastNote[channel]>=0) stopNote(channel);
+  }
+  for(byte led=0;led<6;led++) {
+    blinkSwitch[led] = false;
+    ledRest(led);
+  }
+}
+
+void modeLSDJMidioutSetup()
+{
+#ifdef USE_TEENSY
+  usbMIDI.setHandleRealTimeSystem(NULL);
+#endif
 #ifdef USE_LEONARDO
   midiEventPacket_t packet;
 #endif
+  //Polling clocks the Game Boy. Leave the link idle until the first hold.
+  pinMode(pinGBClock,INPUT_PULLUP);
+  ledRest(5);
+  bool polling = false;
+  bool statusLedLit = false;
+  //A hold can pause the link between a command and its value.
+  int pendingCommand = -1;
+  midiValueMode = false;
+  unsigned long lastStatusChange = 0;
+  MidioutButton button;
   while(1){
-     #ifdef USE_RP2040
-     wdFeed(WD_PHASE_MODE_LOOP);
-     // This mode has no USB-device polling on RP2040 at all, so without this, incoming
-     // USB-device sysex - including a web/Max programmer's request to enter Programmer
-     // Mode - is never read while sitting in this mode.
-     usbMidiUpdate();
-     #endif
+     serviceMidioutInputs();
+     unsigned long now = millis();
+     MidioutButton::Event event = button.read(now);
+     if(event == MidioutButton::Tap && !memory[MEM_FORCE_MODE]) {
+       if(polling) stopMidioutPolling();
+       setMode(0);
+       return;
+     }
+     if(event == MidioutButton::Hold) {
+       polling = !polling;
+       if(polling) {
+         startMidioutPolling();
+         statusLedLit = false;
+         lastStatusChange = now;
+       } else {
+         stopMidioutPolling();
+       }
+       continue;
+     }
+     if(!polling) continue;
+     if(now - lastStatusChange >= 1000) {
+       statusLedLit = !statusLedLit;
+       digitalWrite(pinStatusLed,statusLedLit ? HIGH : LOW);
+       lastStatusChange = now;
+     }
      if(getIncommingSlaveByte()) {
         if(incomingMidiByte > 0x6f) {
           switch(incomingMidiByte)
@@ -90,27 +183,16 @@ void modeLSDJMidiout()
 #endif
              break;
            default:
-             midiData[0] = (incomingMidiByte - 0x70);
-             midiValueMode = true;
+             pendingCommand = incomingMidiByte - 0x70;
              break;
           }
-        } else if (midiValueMode == true) {
-          midiValueMode = false;
-          midioutDoAction(midiData[0],incomingMidiByte);
+        } else if (pendingCommand >= 0) {
+          midioutDoAction(pendingCommand,incomingMidiByte);
+          pendingCommand = -1;
         }
 
       } else {
-        setMode();                // Check if mode button was depressed
         updateBlinkLights();
-#ifdef USE_TEENSY
-        while(usbMIDI.read()) ;
-#endif
-#ifdef USE_LEONARDO
-        // while (MidiUSB.read()) ;
-#endif
-        if (serial->available()) {                  //If serial data was send to midi inp
-          checkForProgrammerSysex(serial->read());
-        }
       }
    }
 }
@@ -138,7 +220,8 @@ void midioutDoAction(byte m, byte v)
 
 void checkStopNote(byte m)
 {
-  if((midioutNoteTimer[m]+midioutNoteTimerThreshold) < millis()) {
+  if(midioutNoteHoldCounter[m] >= sizeof(midioutNoteHold[m]) ||
+     millis() - midioutNoteTimer[m] > (unsigned long)midioutNoteTimerThreshold) {
     stopNote(m);
   }
 }

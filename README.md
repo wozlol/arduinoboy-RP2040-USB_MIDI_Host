@@ -162,7 +162,9 @@ Each of the 4 gameboy channels send MIDI data on 4 midi channels by the use of e
 
 By default each channel of LSDJ is mapped to midi channels 1-4. For example note commands from PU1 will be sent to midi channel 1. 
 
-In LSDJ the `sync` mode should be set to `Midiout`. 
+In LSDJ, the `sync` mode should be set to `MI.OUT`.
+
+To activate MIDIOUT on the Arduinoboy, press the mode button on the Arduinoboy for one second when it's already in mode 7. The red LED in the middle should start blinking slowly to indicate that we're actively monitoring for data. The extra press is needed as LSDJ can get very confused by the Arduinoboy MIDIOUT signals if LSDJ is not in MI.OUT mode, and it might crash LSDJ altogether. Hold the button subsequently for one second to deactivate/activate.
 
 *This requires a special version of LSDJ, which can be found in your account on the [LSDJ website](http://littlesounddj.com/lsd/latest/full_version/).*
 
